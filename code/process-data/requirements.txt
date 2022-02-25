@@ -1,0 +1,4 @@
+oci
+fdk
+requests
+cx_oracle
