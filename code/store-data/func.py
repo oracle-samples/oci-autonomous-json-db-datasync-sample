@@ -8,6 +8,7 @@ import string
 import random
 
 import base64
+from timeit import default_timer as timer
 
 import logging
 from fdk import response
@@ -37,6 +38,7 @@ def get_secret_from_vault(vault_secret_name):
 		# vault_id=vault_ocid).data.secret_bundle_content.content.encode('utf-8')
 		secret_content = client.get_secret_bundle_by_name(secret_name=vault_secret_name,
 														  vault_id=vault_ocid).data.secret_bundle_content.content
+		logging.getLogger().info("decrypted_secret_content", secret_content)
 		decrypted_secret_content = base64.b64decode(secret_content).decode("utf-8")
 		logging.getLogger().info("decrypted_secret_content", decrypted_secret_content)
 	except Exception as ex:
@@ -117,6 +119,7 @@ def handler(ctx, data: io.BytesIO = None):
 
 			# create a new SODA collection; this will open an existing collection, if
 			# the name is already in use
+			start = timer()
 			soda = dbconnection.getSodaDatabase()
 
 			collection = soda.openCollection("datasync_collection")
@@ -126,8 +129,12 @@ def handler(ctx, data: io.BytesIO = None):
 			# document, the content can be a simple Python dictionary which will
 			# internally be converted to a JSON document
 
-			# "value must be a SODA document or a dictionary or list"
+			# end_wallet = timer()
+			# print('INFO: DB wallet downloaded from Autonomous DB in {} sec'.format(end_wallet - start_wallet), flush=True)
+
 			returned_doc = collection.insertOneAndGet(payload)
+			end = timer()
+			print('INFO: inserted in {} sec'.format(end - start), flush=True)
 			key = returned_doc.key
 			logging.getLogger().info('The key of the new SODA document is: ', key)
 			content = collection.find().key(key).getOne().getContent()
@@ -135,7 +142,7 @@ def handler(ctx, data: io.BytesIO = None):
 
 		return response.Response(
 			ctx,
-			response_data="success"
+			response_data="success" + format(end - start)
 		)
 	except Exception as e:
 		logging.getLogger().error(e)
@@ -152,18 +159,20 @@ def create_secret_in_vault(
 	signer = oci.auth.signers.get_resource_principals_signer()
 	try:
 		vault_client = oci.vault.VaultsClient({}, signer=signer)
+		# Create secret_content_details that needs to be passed when updating secret content.
 
-		create_secret_details = oci.vault.models.CreateSecretDetails(
-			compartment_id=vault_compartment_ocid,
-			key_id=vault_key_ocid,
-			secret_content=oci.vault.models.Base64SecretContentDetails(
-				content_type="BASE64",
-				name=vault_secret_name,
-				stage="CURRENT",
-				content=auth_token),
-			secret_name=vault_secret_name,
-			vault_id=vault_ocid)
-		vault_client.create_secret(create_secret_details)
+		secret_content_details = oci.vault.models.Base64SecretContentDetails(
+			content_type=oci.vault.models.SecretContentDetails.CONTENT_TYPE_BASE64,
+			name=vault_secret_name,
+			stage="CURRENT",
+			content=base64.b64encode(auth_token.encode('ascii')).decode("ascii"))
+		secrets_details = oci.vault.models.CreateSecretDetails(compartment_id=vault_compartment_ocid,
+															   secret_content=secret_content_details,
+															   secret_name=vault_secret_name,
+															   vault_id=vault_ocid,
+															   key_id=vault_key_ocid)
+
+		vault_client.create_secret(secrets_details)
 	except Exception as ex:
 		logging.getLogger().error("Failed to create the secret content", ex)
 		raise
