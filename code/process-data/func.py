@@ -5,20 +5,21 @@ import os
 from zipfile import ZipFile
 import string
 import random
-
+import io
 import requests
 import base64
 import logging
 from fdk import response
+from urllib.parse import urlparse, parse_qs
 
 
 def get_dbwallet_from_autonomousdb():
 	signer = oci.auth.signers.get_resource_principals_signer()  # authentication based on instance principal
 	atp_client = oci.database.DatabaseClient(config={}, signer=signer)
 	atp_wallet_pwd = ''.join(random.choices(string.ascii_uppercase + string.digits, k=15))  # random string
-	# the wallet password is  for creation of the Java jks files, and not  by cx_Oracle so the value is not important
+	# the wallet password is  for creation of the  jks files,  so the value is not important
 	atp_wallet_details = oci.database.models.GenerateAutonomousDatabaseWalletDetails(password=atp_wallet_pwd)
-	logging.getLogger().info(atp_wallet_details)
+
 	obj = atp_client.generate_autonomous_database_wallet(adb_ocid, atp_wallet_details)
 	with open(dbwalletzip_location, 'w+b') as f:
 		for chunk in obj.data.raw.stream(1024 * 1024, decode_content=False):
@@ -31,14 +32,10 @@ def get_secret_from_vault(vault_secret_name):
 	signer = oci.auth.signers.get_resource_principals_signer()
 
 	client = oci.secrets.SecretsClient({}, signer=signer)
-	# secret_content = client.get_secret_bundle_by_name(secret_name=vault_secret_name,
-	# vault_id=vault_ocid).data.secret_bundle_content.content.encode('utf-8')
+
 	secret_content = client.get_secret_bundle_by_name(secret_name=vault_secret_name,
 													  vault_id=vault_ocid).data.secret_bundle_content.content
-	logging.getLogger().info("secret_content******************", secret_content)
 	decrypted_secret_content = base64.b64decode(secret_content).decode("utf-8")
-	logging.getLogger().info("decrypted_secret_content", decrypted_secret_content)
-
 	return decrypted_secret_content
 
 
@@ -74,6 +71,11 @@ if os.getenv("ADB_OCID") is not None:
 else:
 	raise ValueError("ERROR: Missing configuration key ADB_OCID")
 
+if os.getenv("retry_codes") is not None:
+	retry_codes = os.getenv("retry_codes")
+else:
+	raise ValueError("ERROR: Missing configuration key retry_codes")
+
 # Download the DB Wallet
 dbwalletzip_location = "/tmp/dbwallet.zip"
 dbwallet_dir = os.getenv('TNS_ADMIN')
@@ -83,9 +85,9 @@ get_dbwallet_from_autonomousdb()
 logging.getLogger().info('DB wallet dir content =', dbwallet_dir, os.listdir(dbwallet_dir))
 # Update SQLNET.ORA
 with open(dbwallet_dir + '/sqlnet.ora') as orig_sqlnetora:
-	newText = orig_sqlnetora.read().replace('DIRECTORY=\"?/network/admin\"', 'DIRECTORY=\"{}\"'.format(dbwallet_dir))
+	new_text = orig_sqlnetora.read().replace('DIRECTORY=\"?/network/admin\"', 'DIRECTORY=\"{}\"'.format(dbwallet_dir))
 with open(dbwallet_dir + '/sqlnet.ora', "w") as new_sqlnetora:
-	new_sqlnetora.write(newText)
+	new_sqlnetora.write(new_text)
 dbpwd = get_secret_from_vault('db_pwd')
 logging.getLogger().info('dbpwd =', dbpwd)
 dbpool = cx_Oracle.SessionPool(dbuser, dbpwd, dbsvc, min=1, max=1, encoding="UTF-8", nencoding="UTF-8")
@@ -94,48 +96,57 @@ dbpool = cx_Oracle.SessionPool(dbuser, dbpwd, dbsvc, min=1, max=1, encoding="UTF
 #
 # Function Handler: executed every time the function is invoked
 #
-def handler(ctx):
-	logging.getLogger().info('INFO: inside handler')
+def handler(ctx, data: io.BytesIO = None):
 	try:
-		
+
+		requesturl = ctx.RequestURL()
+		parsed_url = urlparse(requesturl)
+		path_param = parsed_url.path
 		with dbpool.acquire() as dbconnection:
 			dbconnection.autocommit = True
 
 			soda = dbconnection.getSodaDatabase()
 			collection = soda.openCollection("datasync_collection")
+			# Check if it is a retry call
+			if path_param == '/jsondb/process/retry':
 
-			qbe = {'$query': {'status': {'$eq': 'not_processed'}},
-				   '$orderby': [{'path': 'targetRestApiPayload.created_date', 'datatype': 'datetime', 'order': 'asc'}]}
+				qbe = {'$query': {'status': {'$eq': 'failed'}, 'status_code': {'$in': retry_codes.split(',')}},
+					   '$orderby': [
+						   {'path': 'targetRestApiPayload.created_date', 'datatype': 'datetime', 'order': 'asc'}]}
+			else:
+				qbe = {'$query': {'status': {'$eq': 'not_processed'}},
+					   '$orderby': [
+						   {'path': 'targetRestApiPayload.created_date', 'datatype': 'datetime', 'order': 'asc'}]}
 
 			total_count = 0
 			sucess_count = 0
 			failed_count = 0
 
 			num_docs = collection.find().filter(qbe).count()
+			logging.getLogger().info('num_docs', num_docs)
 			for doc in collection.find().filter(qbe).limit(5).getDocuments():
 				content = doc.getContent()
-				total_count = total_count + 1
-
 				process(content)
-				logging.getLogger().info("processed content**")
-				collection.find().key(doc.key).replaceOne(content)
-				logging.getLogger().info("replaced content**")
+				if path_param == '/jsondb/process/retry':
+					retrial_count = content["retrial_count"]
+					if retrial_count is None:
+						content["retrial_count"] = 1
+					else:
+						content["retrial_count"] = int(content["retrial_count"]) + 1
 
+				# Replace the content with new content having status_code and status
+				collection.find().key(doc.key).replaceOne(content)
 				if content['status'] == "success":
 					sucess_count = sucess_count + 1
 				elif content['status'] == "failed":
 					failed_count = failed_count + 1
-
-
-
+				total_count = total_count + 1
 	except Exception as e:
 		logging.getLogger().error(e)
 		failed_count = failed_count + 1
-	logging.getLogger().info("replaced content**#####2")
-	logging.getLogger().info("total_count **", total_count)
-	logging.getLogger().info("num_docs **", num_docs)
-	logging.getLogger().info("replaced content**#####3")
-	if total_count < 5 or num_docs == 0:
+		total_count = total_count + 1
+
+	if num_docs < 5:
 		has_next = "false"
 		logging.getLogger().info("replaced content**#####4")
 	else:
@@ -155,6 +166,7 @@ def process(content):
 		target_rest_api_operation = content["targetRestApiOperation"]
 		target_rest_api_payload = content["targetRestApiPayload"]
 		target_rest_api_headers = content["targetRestApiHeaders"]
+
 		auth_token = get_secret_from_vault(vault_secret_name)
 		# Merge two headers
 		target_rest_api_headers.update({'Authorization': auth_token})
@@ -174,10 +186,10 @@ def process(content):
 												headers=target_rest_api_headers)
 		else:
 			logging.getLogger().info("incorrect REST API method. Method should be either POST, PUT or DELETE")
+			content['status'] = 'failed'
+			content['failure_reason'] = "incorrect REST API method. Method should be either POST, PUT or DELETE"
 			return
-		logging.getLogger().info(api_call_response.text)
-		logging.getLogger().info(api_call_response.status_code)
-		logging.getLogger().info("failure reason is", api_call_response.reason)
+
 		if api_call_response.ok:
 			content['status'] = 'success'
 		else:
@@ -188,7 +200,6 @@ def process(content):
 		content['status_code'] = api_call_response.status_code
 
 	except Exception as e:
-		logging.getLogger().info("failed-----****")
 		logging.getLogger().error(e)
 		content['status'] = 'failed'
 		content['failure_reason'] = 'unexpected error'

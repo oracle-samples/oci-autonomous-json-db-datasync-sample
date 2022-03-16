@@ -18,10 +18,9 @@ def get_dbwallet_from_autonomousdb():
 	signer = oci.auth.signers.get_resource_principals_signer()  # authentication based on instance principal
 	atp_client = oci.database.DatabaseClient(config={}, signer=signer)
 	atp_wallet_pwd = ''.join(random.choices(string.ascii_uppercase + string.digits, k=15))  # random string
-	# the wallet password is only used for creation of the Java jks files, which aren't used by cx_Oracle so the value
-	# is not important
+	# the wallet password is for creation of the jks
 	atp_wallet_details = oci.database.models.GenerateAutonomousDatabaseWalletDetails(password=atp_wallet_pwd)
-	logging.getLogger().info("AJD Wallet Details", atp_wallet_details)
+
 	obj = atp_client.generate_autonomous_database_wallet(adb_ocid, atp_wallet_details)
 	with open(dbwalletzip_location, 'w+b') as f:
 		for chunk in obj.data.raw.stream(1024 * 1024, decode_content=False):
@@ -34,13 +33,11 @@ def get_secret_from_vault(vault_secret_name):
 	signer = oci.auth.signers.get_resource_principals_signer()
 	try:
 		client = oci.secrets.SecretsClient({}, signer=signer)
-		# secret_content = client.get_secret_bundle_by_name(secret_name=vault_secret_name,
-		# vault_id=vault_ocid).data.secret_bundle_content.content.encode('utf-8')
+
 		secret_content = client.get_secret_bundle_by_name(secret_name=vault_secret_name,
 														  vault_id=vault_ocid).data.secret_bundle_content.content
-		logging.getLogger().info("decrypted_secret_content", secret_content)
 		decrypted_secret_content = base64.b64decode(secret_content).decode("utf-8")
-		logging.getLogger().info("decrypted_secret_content", decrypted_secret_content)
+
 	except Exception as ex:
 		logging.getLogger().error("Failed to retrieve the secret content", ex)
 		raise
@@ -82,24 +79,21 @@ dbwallet_dir = os.getenv('TNS_ADMIN')
 
 get_dbwallet_from_autonomousdb()
 
-logging.getLogger().info('DB wallet dir content =', dbwallet_dir, os.listdir(dbwallet_dir))
 # Update SQLNET.ORA
 with open(dbwallet_dir + '/sqlnet.ora') as orig_sqlnetora:
-	newText = orig_sqlnetora.read().replace('DIRECTORY=\"?/network/admin\"', 'DIRECTORY=\"{}\"'.format(dbwallet_dir))
+	new_text = orig_sqlnetora.read().replace('DIRECTORY=\"?/network/admin\"', 'DIRECTORY=\"{}\"'.format(dbwallet_dir))
 with open(dbwallet_dir + '/sqlnet.ora', "w") as new_sqlnetora:
-	new_sqlnetora.write(newText)
+	new_sqlnetora.write(new_text)
 dbpwd = get_secret_from_vault('db_pwd')
 
 dbpool = cx_Oracle.SessionPool(dbuser, dbpwd, dbsvc, min=1, max=1, encoding="UTF-8", nencoding="UTF-8")
 
 
 #
-# Function Handler: executed every time the function is invoked
+# Function Handler
 #
 def handler(ctx, data: io.BytesIO = None):
 	try:
-		logging.getLogger().info("headers", ctx.Headers())
-
 		payload_bytes = data.getvalue()
 		if payload_bytes == b'':
 			raise KeyError('No keys in payload')
@@ -126,20 +120,10 @@ def handler(ctx, data: io.BytesIO = None):
 			if collection is None:
 				collection = soda.createCollection("datasync_collection")
 			# insert a document into the collection; for the common case of a JSON
-			# document, the content can be a simple Python dictionary which will
-			# internally be converted to a JSON document
-
-			# end_wallet = timer()
-			# print('INFO: DB wallet downloaded from Autonomous DB in {} sec'.format(end_wallet - start_wallet), flush=True)
-
-			returned_doc = collection.insertOneAndGet(payload)
+			# document
+			collection.insertOneAndGet(payload)
 			end = timer()
 			print('INFO: inserted in {} sec'.format(end - start), flush=True)
-			key = returned_doc.key
-			logging.getLogger().info('The key of the new SODA document is: ', key)
-			content = collection.find().key(key).getOne().getContent()
-			logging.getLogger().info(content)
-
 		return response.Response(
 			ctx,
 			response_data="success" + format(end - start)
@@ -152,6 +136,7 @@ def handler(ctx, data: io.BytesIO = None):
 		)
 
 
+# Create a new secret in vault
 def create_secret_in_vault(
 		auth_token,
 		vault_secret_name):
@@ -159,7 +144,6 @@ def create_secret_in_vault(
 	signer = oci.auth.signers.get_resource_principals_signer()
 	try:
 		vault_client = oci.vault.VaultsClient({}, signer=signer)
-		# Create secret_content_details that needs to be passed when updating secret content.
 
 		secret_content_details = oci.vault.models.Base64SecretContentDetails(
 			content_type=oci.vault.models.SecretContentDetails.CONTENT_TYPE_BASE64,
@@ -178,6 +162,7 @@ def create_secret_in_vault(
 		raise
 
 
+# Check if the secret is already present in vault
 def is_secret_in_vault(vault_secret_name):
 	logging.getLogger().info("INSIDE  is_secret_in_vault")
 
@@ -191,7 +176,7 @@ def is_secret_in_vault(vault_secret_name):
 			vault_id=vault_ocid,
 			lifecycle_state="ACTIVE")
 		data = list_secrets_response.data
-		logging.getLogger().info("the secret cotent is ", data)
+
 		if len(data) == 0:
 			logging.getLogger().info("Secret not found in vault")
 			return False
