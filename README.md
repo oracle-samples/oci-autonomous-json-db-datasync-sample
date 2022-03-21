@@ -234,13 +234,13 @@ In case of retry, the response informs, the number of records skipped from proce
 
 ### Running the sample
 
-1. 
 
-- [ ] 2. To run the sample, get the Endpoint of the API Gateway deployment _SyncUsingJSONDB_. 
-- [ ] 
-- [ ] 2. Append the Endpoint with the path /store. The API will look like this, https://[host-name]/jsondb/store
-- [ ] 
-- [ ] 3. The curl command will look this,
+
+- [ Make sure that a schema is created in the AJD and you are able to connect to the schema. ] 
+
+- [ get the Endpoint of the API Gateway deployment _SyncUsingJSONDB_.  Append the Endpoint with the path /store. The API will look like this, https://[host-name]/jsondb/store ] 
+
+- [ Make the REST call to the above  endpoint.  The curl command will look this,
 
 
 ```curl --location --request POST 'https://pfk2ep3pw3x3tcx4iemcx4gj4q.apigateway.us-ashburn-1.oci.customer-oci.com/jsondb/store' \
@@ -261,7 +261,9 @@ In case of retry, the response informs, the number of records skipped from proce
 		
 	
 
-}' ```
+}' ``` ] 
+
+- [ ] 
 
 
 
