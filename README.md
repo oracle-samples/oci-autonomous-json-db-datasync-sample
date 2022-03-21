@@ -174,7 +174,7 @@ Step 5.	Lastly there is an option to retry the failed messages  using an API Gat
 
 The sample REST API call and  payload will look like this.
 
-https://[host-name]/jsondb/process/retry
+https://[host-name]/jsondb/process/retry 
 
 ```
 {
@@ -188,8 +188,12 @@ https://[host-name]/jsondb/process/retry
 ```
 
 
-In the retry payload, specify the stream OCID to retry using  _streamOCIDToRetry_ and the offset from where the retry should happen. 
-_noOfMessagesToProcess_ is the no of Stream messages to process in a single Function call.
+In the retry payload, specify the _no_of_records_to_process_, which specifies the number of records to process by a single call of the Function. _retry_codes_ is where you can specify the response codes that should be retried.
+It also contains an option to set the number of times retry should happen using _no_of_times_to_retry_.
+
+This Function queries the database for records with _status_ as _failed_ and with _status_code_ matching the _retry_codes_. If the processing of record has already been tried to a number equal to _no_of_times_to_retry_, then those records are skkiped. This api call, sends a response as below
+
+
 
 _readAfterOffset_ is the offset location from where the messages are to be read. Set this to -1 to start reading from the oldest message in the Stream. 
 
