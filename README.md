@@ -71,6 +71,10 @@ In this sample, a single collection is used _DataSyncCollection_. This collectio
 
 Functions are under an Application, _DataSyncWithJSONDB_ . It has the following configuration variables. They are for defining the AJD connections, Vault OCIDs,  etc
 
+_DBUSER_ is the database schema to connect to.
+_DBSVC_ is the database service name.
+In addition to these configuration contains OCIDs of various services.
+
 
 ![Application configuration variables]( /image/ApplicationConfiguration.png "Application configuration variables")
 
@@ -90,6 +94,7 @@ There is one API Gateway used, _SyncDataGateway_. There are 3 routes defined in 
 [Vault](https://www.oracle.com/in/security/cloud-security/key-management/)
 
 A vault called, _DataSyncVault_ is used to store the auth tokens as secrets.
+The databse schema password to connect, also is present in the same vault.
 
 
 [HashiCorp Terraform](https://www.Terraform.io/)
@@ -106,22 +111,24 @@ A vault called, _DataSyncVault_ is used to store the auth tokens as secrets.
 
 ## Process Flow
 
-Step 1.	Source application/s posts data to the REST API exposed by the API Gateway. The API gateway  has an API deployment that invokes the Function _store-data_.
+Step 1.	Source application/s posts data to the REST API exposed by the API Gateway. The API gateway has an API deployment with route with path ,_/store_ that invokes the Function _store-data_.
 
 The REST API call to API Gateway and sample json payload is given below. 
 https://[hostname]/jsondb/store
 
 
+
+
 ```
 {
-       "created_date":"2022-03-14 11:35:49.966290000",
-	   "vaultSecretName":"testjan1test",
-		"targetRestApi": "https://g4kz1wyoyzrtvap-jsondb.adb.us-ashburn-1.oraclecloudapps.com/ords/admin/soda/latest/orders",
+       "createdDate":"2022-03-14 11:35:49.966290000",
+	   "vaultSecretName":"vaultsecret1",
+		"targetRestApi": "https://g.../.../latest/orders",
 		"targetRestApiOperation": "POST",
 		"targetRestApiPayload": {
 			"orderid": "20jan1",
 			"PO": "19jan"
-	},
+		},
 		"targetRestApiHeaders": {
 			 "Content-Type": "application/json"
 			}
@@ -136,10 +143,25 @@ The payload  is self-contained i.e.  it contains the target application API in _
 
 In most cases the target application API will need a security token. Usually this token is passed in the authorization header of the POST call to API Gateway. This token needs to be securely stored for target application API processing later by Functions. For this purpose,  the json payload contains a  node called _vaultSecretName_ which is an id that should be unique to messages that has the same auth token passed in authorization header.  The unique id will be used as a secret name in the Vault and the secret content will be the auth token passed in the authorization header. When the auth token in the authorization header changes, a new value should be passed in the _vaultSecretName_ for those messages.
 
+_createdDate_ is used internally by the Functions to sort the records based on the date. Pass the date and time in this field.
 
-Step 2.	_store-data_  parses the json payload and inserts the record into _datasync_collection_. It also reads the _vaultSecretName_ and creates a secret in Vault with content as the authorization header token and name as _vaultSecretName_.
 
-Step 3.	_process-data_  Function which is exposed in APIGAteway, can be invoked sequentially to process the records. The call will be https://[host-name]/stream/process. This invocation can be automated. This function reads through the DB and looks for records that are of _status_ as _not_processed_, ordered by the _created_date_.
+Step 2.	_store-data_  inserts the JSON payload into _datasync_collection_. It adds a new node to json payload called , _status_ with value as _not_processed. This node will be used by _process-data_ Function to filter the records.
+It also reads the _vaultSecretName_ and creates a secret in Vault with content as the authorization header token and secret name as the value of the node _vaultSecretName_.
+
+Step 3.	_process-data_  Function which is exposed in API Gateway using the route with path _/process_, can be invoked sequentially to process the records. The API endpoint will be https://[host-name]/jsondb/process. 
+The sequential invocation of the REST api should be automated. This Function reads through the DB and looks for records that are of _status_ as _not_processed_, ordered by the _createdDate_. It then calls the target applications REST endpoint by reading the value of the node _targetRESTApi_
+using the method in _targetRestApiOperation_. 
+The number 
+```
+{
+	
+	"no_of_records_to_process": 2
+
+   
+}
+```
+
 
 Step 5.	Lastly there is an option to retry the failed messages  using an API Gateway API, that exposes the _process-data_ Function, in a route _/process/retry_
 
@@ -149,25 +171,13 @@ https://[host-name]/jsondb/process/retry
 
 ```
 {
-	"streamOCIDToRetry": "ocid1.stream.o...rrr",
-	"noOfMessagesToProcess": 5,
-	"readAfterOffset": -1,
-	"readPartition": "0",
-	"errormapping": [{
-			"responsecode": "404",
-			"stream": "ocid1.stream.oc1.iad...r"
-		},
-		{
-			"responsecode": "503",
-			"stream": "ocid1.stream.oc1.iad.am.."
-		}, {
-			"responsecode": "unexpectedError",
-			"stream": "ocid1.stream.oc1.iad.a...q"
-		}
-	]
-
-
+	
+	"no_of_records_to_process": 2,
+	"retry_codes":"503,500",
+    "no_of_times_to_retry":3
+   
 }
+
 ```
 
 
