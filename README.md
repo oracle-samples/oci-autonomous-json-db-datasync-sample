@@ -35,14 +35,17 @@ Choosing OCI Cloud Native Services as middle tier has the following benefits,
 [Autonomous JSON DB](https://www.oracle.com/autonomous-database/)
 
 
-Oracle Autonomous JSON Database is a cloud document database service that makes it simple to develop JSON-centric applications. It features NoSQL-style document APIs (Oracle SODA and Oracle Database API for MongoDB), serverless scaling, high performance ACID transactions, comprehensive security, and low pay-per-use pricing. Autonomous JSON Database automates provisioning, configuring, tuning, scaling, patching, encrypting, and repairing of databases, eliminating database management and delivering 99.95% availability.
+Oracle Autonomous JSON Database is a cloud document database service that makes it simple to develop JSON-centric applications. 
+The AJD used in this sample is named as _jsonDB_.
+
 
 [SODA](https://docs.oracle.com/en/database/oracle/simple-oracle-document-access/)
 
 This sample uses SODA APIs to access Autonomous JSON databse. SODA abstractions hide the complexities of SQL and client programming using
 
-> Collection
-> Document
+1. Collection
+2. Document
+
 
 **Collection**
 
@@ -66,28 +69,22 @@ In this sample, a single collection is used _DataSyncCollection_. This collectio
 
 [Functions](https://www.oracle.com/cloud-native/functions/)
 
-Functions are under an Application, _DataSyncWithJSONDB_ . It has the following configuration variables. They are for defining the AJD connections, Vault OCIDs, retry_codes etc
+Functions are under an Application, _DataSyncWithJSONDB_ . It has the following configuration variables. They are for defining the AJD connections, Vault OCIDs,  etc
 
 
 ![Application configuration variables]( /image/ApplicationConfiguration.png "Application configuration variables")
 
-2 Functions are used in this pattern. 
-• _store-data_ → This Function is used to populate the _DataSyncWithJSONDB_ . It is invoked when the Source Application/s post data to the REST API exposed using API Gateway. 
-•_process-data_ → This Function reads the records in  _DataSyncWithJSONDB_ and looks for records which in _not_processed_ status. It reads the json data and calls the target application’s API. If there is a failure in target application API call, the JSON data in the record is updated with 
-   ``` "status": "failed" ``` and   ``` "status_code": ``` as the REST api response code. If the Target application API call is a success, the JSON data in the record is updated with 
-   ``` "status": "success" ``` and   ``` "status_code": ``` as the REST api response code. 
+2 Functions are used in this pattern. They are python Functions and uses [SODA for Python](https://docs.oracle.com/en/database/oracle/simple-oracle-document-access/python/). Both Functions are exposed using API Gateway.
 
-This Function code is also used for retrials of failed records. The status_code for which retrials has to happen is defined in the application configuration variables. When this Function is executed for retrial, then it looks for records which in _failed_ status and with _status_code_ defined in the configuration. 
-  
+• _store-data_ → This Function creates a collection called _DataSyncCollection_ in AJD, _jsonDB_ if collection is not existing and then populate the collection with the data posted by the source application. Each call to this Function adds a new record in the _DataSyncCollection_.
 
+•_process-data_ → This Function is used to do the initial processing of records as well as retrial of failed records in the _DataSyncCollection_ . 
 
+When it is used for initial processing, it uses the SODA QBE filters and look for records which are not processed. When it is used for retrials , it uses SODA QBE filters and look for records which are of failed status.
 
 [API Gateway](https://docs.oracle.com/en-us/iaas/Content/APIGateway/)
 
-There is one API Gateway used, _SyncDataGateway_. There are 3 routes defined in API Gateway deployment,_SyncUsingJSONDB_. One is to map the Function _store-data_ to route _/store_, 2nd is to map the _process-data_ Function to route _/process_  and 3rd is to map the _process-data_ Function to route _/process/retry_
-
-
-
+There is one API Gateway used, _SyncDataGateway_. There are 3 routes defined in API Gateway deployment,_SyncUsingJSONDB_. One is to map the Function _store-data_ to the route _/store_, 2nd is to map the _process-data_ Function to the route _/process_  and 3rd is to map the _process-data_ Function to the route _/process/retry_
 
 
 [Vault](https://www.oracle.com/in/security/cloud-security/key-management/)
@@ -99,8 +96,8 @@ A vault called, _DataSyncVault_ is used to store the auth tokens as secrets.
 
 [Oracle Terraform Provider](https://registry.Terraform.io/providers/hashicorp/oci/latest/docs)
 
-[Java](https://www.oracle.com/java/)
-  - [Oracle Cloud Infrastructure SDK for Java](https://docs.oracle.com/en-us/iaas/Content/API/SDKDocs/javasdk.htm)
+[Python](https://www.python.org/)
+  - [Oracle Cloud Infrastructure SDK for Python](https://docs.oracle.com/en-us/iaas/Content/API/SDKDocs/pythonsdk.htm)
   
 
 ## Architecture
