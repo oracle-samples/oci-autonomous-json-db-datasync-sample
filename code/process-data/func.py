@@ -86,7 +86,6 @@ try:
 
 	get_dbwallet_from_autonomousdb()
 
-	logging.getLogger().info('DB wallet dir content =', dbwallet_dir, os.listdir(dbwallet_dir))
 	# Update SQLNET.ORA
 	with open(dbwallet_dir + '/sqlnet.ora') as orig_sqlnetora:
 		new_text = orig_sqlnetora.read().replace('DIRECTORY=\"?/network/admin\"',
@@ -206,7 +205,7 @@ def handler(ctx, data: io.BytesIO = None):
 	return response.Response(
 		ctx,
 		response_data='{"total_processed_records":' + str(total_count) + ',"success_count":' + str(
-			sucess_count) + ',"failure_count":' + str(failed_count) + ',"retrial_count_reached":' + str(
+			sucess_count) + ',"failure_count":' + str(failed_count) + ',"skipped_count":' + str(
 			retrial_count_reached) + ',"has_next:"' + has_next + '"}'
 	)
 
