@@ -37,32 +37,31 @@ Choosing OCI Cloud Native Services as middle tier has the following benefits,
 
 Oracle Autonomous JSON Database is a cloud document database service that makes it simple to develop JSON-centric applications. It features NoSQL-style document APIs (Oracle SODA and Oracle Database API for MongoDB), serverless scaling, high performance ACID transactions, comprehensive security, and low pay-per-use pricing. Autonomous JSON Database automates provisioning, configuring, tuning, scaling, patching, encrypting, and repairing of databases, eliminating database management and delivering 99.95% availability.
 
-[SODA]
+[SODA](https://docs.oracle.com/en/database/oracle/simple-oracle-document-access/)
 
 This sample uses SODA APIs to access Autonomous JSON databse. SODA abstractions hide the complexities of SQL and client programming using
 
-Collection
+> Collection
+> Document
 
-Document
+**Collection**
 
 A SODA collection is analogous to an Oracle Database table or view.  A document collection contains documents. 
-Collections are persisted in an Oracle Database schema (also known as a database user). In some SODA implementations a database schema is referred to as a SODA database.
+Collections are persisted in an Oracle Database schema . A database schema is referred to as a SODA database.
 
 Even Though SODA is designed primarily for working with JSON documents, but a document can be of any Multipurpose Internet Mail Extensions (MIME) type.
 
 In addition to its content, a document has other document components, including a unique identifier, called its key, a version, a media type (type of content), and the date and time that it was created and last modified. 
 
-The key is typically assigned by SODA when a document is created, but client-assigned keys can also be used. Besides the content and key (if client-assigned), you can set the media type of a document. The other components are generated and maintained by SODA. All components other than content and key are optional.
+The key is typically assigned by SODA when a document is created, but client-assigned keys can also be used. The other components are generated and maintained by SODA. All components other than content and key are optional.
+
+**Document**
 
 A SODA document is analogous to, and is in fact backed by, a row of a database table or view. The row has one column for each document component: key, content, version, and so on.
 
-In addition to the documents it contains, a collection also has associated collection metadata. This specifies various details about the collection, such as its storage, whether it should track version and time-stamp document components, how such components are generated, and whether the collection can contain only JSON documents.
-
-In some contexts collection metadata is represented as a JSON document. This metadata document is sometimes called a collection specification. You can supply a custom collection specification when you create a collection, to provide metadata that differs from that provided by default.
-
 SODA provides CRUD operations on documents. JSON documents can additionally be queried, using query-by-example (QBE) patterns, also known as filter specifications. A filter specification is itself a JSON object.
 
-The posted data from the Source Application are stored in a collecton called _DataSyncCollection_. 
+In this sample, a single collection is used _DataSyncCollection_. This collection contains the json payload posted by the source application.
 
 
 [Functions](https://www.oracle.com/cloud-native/functions/)
