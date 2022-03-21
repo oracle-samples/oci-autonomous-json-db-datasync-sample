@@ -52,11 +52,9 @@ This sample uses SODA APIs to access Autonomous JSON databse. SODA abstractions 
 A SODA collection is analogous to an Oracle Database table or view.  A document collection contains documents. 
 Collections are persisted in an Oracle Database schema . A database schema is referred to as a SODA database.
 
-Even Though SODA is designed primarily for working with JSON documents, but a document can be of any Multipurpose Internet Mail Extensions (MIME) type.
-
 In addition to its content, a document has other document components, including a unique identifier, called its key, a version, a media type (type of content), and the date and time that it was created and last modified. 
 
-The key is typically assigned by SODA when a document is created, but client-assigned keys can also be used. The other components are generated and maintained by SODA. All components other than content and key are optional.
+The key is typically assigned by SODA when a document is created. The other components are generated and maintained by SODA. 
 
 **Document**
 
@@ -64,25 +62,25 @@ A SODA document is analogous to, and is in fact backed by, a row of a database t
 
 SODA provides CRUD operations on documents. JSON documents can additionally be queried, using query-by-example (QBE) patterns, also known as filter specifications. A filter specification is itself a JSON object.
 
-In this sample, a single collection is used _DataSyncCollection_. This collection contains the json payload posted by the source application.
+In this sample, a single collection is used, _DataSyncCollection_. This collection contains the json payload posted by the source application.
 
 
 [Functions](https://www.oracle.com/cloud-native/functions/)
 
-Functions are under an Application, _DataSyncWithJSONDB_ . It has the following configuration variables. They are for defining the AJD connections, Vault OCIDs,  etc
+Functions are under an Application, _DataSyncWithJSONDB_ . It has the following configuration variables. 
+
+![Application configuration variables]( /image/ApplicationConfiguration.png "Application configuration variables")
 
 _DBUSER_ is the database schema to connect to.
 _DBSVC_ is the database service name.
-In addition to these configuration contains OCIDs of various services.
+In addition to these, configuration contains OCIDs of various services.
 
-
-![Application configuration variables]( /image/ApplicationConfiguration.png "Application configuration variables")
 
 2 Functions are used in this pattern. They are python Functions and uses [SODA for Python](https://docs.oracle.com/en/database/oracle/simple-oracle-document-access/python/). Both Functions are exposed using API Gateway.
 
 • _store-data_ → This Function creates a collection called _DataSyncCollection_ in AJD, _jsonDB_ if collection is not existing and then populate the collection with the data posted by the source application. Each call to this Function adds a new record in the _DataSyncCollection_.
 
-•_process-data_ → This Function is used to do the initial processing of records as well as retrial of failed records in the _DataSyncCollection_ . 
+•_process-data_ → This Function is used to do the processing of records as well as retrial of failed records in the _DataSyncCollection_ . 
 
 When it is used for initial processing, it uses the SODA QBE filters and look for records which are not processed. When it is used for retrials , it uses SODA QBE filters and look for records which are of failed status.
 
@@ -94,7 +92,7 @@ There is one API Gateway used, _SyncDataGateway_. There are 3 routes defined in 
 [Vault](https://www.oracle.com/in/security/cloud-security/key-management/)
 
 A vault called, _DataSyncVault_ is used to store the auth tokens as secrets.
-The databse schema password to connect, also is present in the same vault.
+The database schema password to connect to AJD, also is added in the same vault.
 
 
 [HashiCorp Terraform](https://www.Terraform.io/)
@@ -103,6 +101,7 @@ The databse schema password to connect, also is present in the same vault.
 
 [Python](https://www.python.org/)
   - [Oracle Cloud Infrastructure SDK for Python](https://docs.oracle.com/en-us/iaas/Content/API/SDKDocs/pythonsdk.htm)
+  - [SODA for Python](https://docs.oracle.com/en/database/oracle/simple-oracle-document-access/python/)
   
 
 ## Architecture
@@ -111,18 +110,14 @@ The databse schema password to connect, also is present in the same vault.
 
 ## Process Flow
 
-Step 1.	Source application/s posts data to the REST API exposed by the API Gateway. The API gateway has an API deployment with route with path ,_/store_ that invokes the Function _store-data_.
+Step 1.	Source application/s posts data to the API Gateway deployment route with path ,_/store_ . This invokes the Function _store-data_.
 
 The REST API call to API Gateway and sample json payload is given below. 
 https://[hostname]/jsondb/store
 
-
-
-
 ```
 {
-       "createdDate":"2022-03-14 11:35:49.966290000",
-	   "vaultSecretName":"vaultsecret1",
+        "vaultSecretName":"vaultsecret1",
 		"targetRestApi": "https://g.../.../latest/orders",
 		"targetRestApiOperation": "POST",
 		"targetRestApiPayload": {
@@ -139,12 +134,9 @@ https://[hostname]/jsondb/store
 ```
 
 
-The payload  is self-contained i.e.  it contains the target application API in _targetRestApi_ node,  target application’s Rest API operation in _targetRestApiOperation_ node and a target application’s Rest API payload in _targetRestApiPayload_ node. Headers for target REST API call should be sent as key , value pair in _targetRestApiHeaders_ node.
+The payload  is self-contained i.e.  it contains the target application API in _targetRestApi_ node,  target application’s Rest API operation in _targetRestApiOperation_ node and a target application’s Rest API payload in _targetRestApiPayload_ node. Headers for target REST API call should be sent in _targetRestApiHeaders_ node.
 
-In most cases the target application API will need a security token. Usually this token is passed in the authorization header of the POST call to API Gateway. This token needs to be securely stored for target application API processing later by Functions. For this purpose,  the json payload contains a  node called _vaultSecretName_ which is an id that should be unique to messages that has the same auth token passed in authorization header.  The unique id will be used as a secret name in the Vault and the secret content will be the auth token passed in the authorization header. When the auth token in the authorization header changes, a new value should be passed in the _vaultSecretName_ for those messages.
-
-_createdDate_ is used internally by the Functions to sort the records based on the date. Pass the date and time in this field.
-
+In most cases the target application API will need a security token. Usually this token is passed in the authorization header of the POST call to API Gateway. This token needs to be securely stored for target application API processing later by _process-data_ Function. For this purpose,  the json payload contains a  node called _vaultSecretName_ which is an id that should be unique to messages that has the same auth token.  The unique id will be used as a secret name in the Vault and the secret content will be the auth token passed in the authorization header. When the auth token in the authorization header is different, a new value should be passed in the _vaultSecretName_ for those messages.
 
 Step 2.	_store-data_  inserts the JSON payload into _datasync_collection_. It adds a new node to json payload called , _status_ with value as _not_processed. This node will be used by _process-data_ Function to filter the records.
 It also reads the _vaultSecretName_ and creates a secret in Vault with content as the authorization header token and secret name as the value of the node _vaultSecretName_.
