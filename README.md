@@ -195,15 +195,7 @@ This Function queries the database for records with _status_ as _failed_ and wit
 
 
 
-_readAfterOffset_ is the offset location from where the messages are to be read. Set this to -1 to start reading from the oldest message in the Stream. 
-
-The payload also contains an _errormapping_ section to specify the streams to which errored messages should be directed to. _streamOCIDToRetry_ option in the retry payload gives flexibility of retrying messages in any stream.
-
-_errormapping_ option in the payload gives the flexibility of changing error stream mapping based on the stream which is retried and the expected error scenario.
-
-This API's response body will have information on the last offset which was successfully processed, no. of successfully  processed messages and no. of failed messages. 
-
-`{"lastReadOffset":405 ,"processedmessages":0,"failedMessages":1,"endOfStream": true}`
+`{"total_processed_records":1,"success_count":0,"failure_count":1,"retrial_count_reached":0,"has_next:"false"}`
 
 It also informs whether end of Stream has reached, so that further call for retrial can be stopped if there is no more message to process.
 
