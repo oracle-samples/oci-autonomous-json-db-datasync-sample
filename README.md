@@ -150,9 +150,8 @@ Step 2.	_store-data_  inserts the JSON payload into _datasync_collection_. It ad
 It also reads the _vaultSecretName_ and creates a secret in Vault with content as the authorization header token and secret name as the value of the node _vaultSecretName_.
 
 Step 3.	_process-data_  Function which is exposed in API Gateway using the route with path _/process_, can be invoked sequentially to process the records. The API endpoint will be https://[host-name]/jsondb/process. 
-The sequential invocation of the REST api should be automated. This Function reads through the DB and looks for records that are of _status_ as _not_processed_, ordered by the _createdDate_. It then calls the target applications REST endpoint by reading the value of the node _targetRESTApi_
-using the method in _targetRestApiOperation_. 
-The number 
+The payload for this API, will look like below sample.
+
 ```
 {
 	
@@ -162,6 +161,14 @@ The number
 }
 ```
 
+The sequential invocation of the REST api should be automated. This Function reads through the DB and looks for records that are of _status_ as _not_processed_, ordered by the _createdDate_. The number of records to process by a single call of the Function is defined in the _no_of_records_to_process_ value in the payload.
+It then calls the target applications REST endpoint by reading the value of the node _targetRESTApi_ and  using the method in _targetRestApiOperation_. 
+If the call is successful, the JSON data in the record is updated with a status node with value as _success_ and the _status_code_ as the REST response code of the target application API.
+If the call is failed, the record is updated with a status node with value as _failed_ and the _status_code_ as the REST response code of the target application API. Function also adds a _failure_reason_ node with the reason for the target application call failure.
+
+The response fromn the Function call will look like below. It gives the count of the total processed records, failed and successful records. It has a _has_next_ node that indicates whether there are further records in the database, with _status_ as _not_processed_
+
+```{"total_processed_records":1,"success_count":0,"failure_count":1,"has_next:"false"}```
 
 Step 5.	Lastly there is an option to retry the failed messages  using an API Gateway API, that exposes the _process-data_ Function, in a route _/process/retry_
 
