@@ -234,13 +234,11 @@ In case of retry, the response informs, the number of records skipped from proce
 
 ### Running the sample
 
+1. - Make sure that a schema is created in the AJD and you are able to connect to the schema. 
 
+2. - Get the Endpoint of the API Gateway deployment _SyncUsingJSONDB_.  Append the Endpoint with the path /store. The API will look like this, https://[host-name]/jsondb/store 
 
-- Make sure that a schema is created in the AJD and you are able to connect to the schema. 
-
-- Get the Endpoint of the API Gateway deployment _SyncUsingJSONDB_.  Append the Endpoint with the path /store. The API will look like this, https://[host-name]/jsondb/store 
-
--  Make the REST call to the above  endpoint.  The curl command will look this,
+3.  Make the REST call to the above  endpoint.  The curl command will look this,
 
 
 ```curl --location --request POST 'https://pfk2ep3pw3x3tcx4iemcx4gj4q.apigateway.us-ashburn-1.oci.customer-oci.com/jsondb/store' \
@@ -262,11 +260,14 @@ In case of retry, the response informs, the number of records skipped from proce
 	
 
 }' ``` 
+
 This API call will insert a record in the collection called _datasync_collection_ in AJD. The JSON payload will be stored in the JSON_DOCUMENT column in the table, _DataSyncCollection_. Check the table to verify if the record is successfully inserted. You can use the Database Actions menu in AJD to inspect the databse contents. There are various options available once the Database Actions is launched, like SQL, JSON etc.
 
 The inserted JSON document in the table , will have an additional node called , _status_ with value as _not_processed_
 
-- Next,  Run the process api,https://[host-name]/jsondb/process. The curl command will look this,
+
+4. Next,  Run the process api,https://[host-name]/jsondb/process. The curl command will look this,
+
 ``` curl --location --request POST 'https://pfk2ep3pw3x3tcx4iemcx4gj4q.apigateway.us-ashburn-1.oci.customer-oci.com/jsondb/process/retry' \
 --header 'Authorization: Basic YWRtaW46V2VsY29tZTEyMzQq' \
 --header 'Content-Type: text/plain' \
@@ -280,7 +281,7 @@ The inserted JSON document in the table , will have an additional node called , 
 Check the response, to see if the _total_processed_records_ is 1 and _success_count_ is 1. If _success_count_ is 1, check the Target APplication and verify if the REST api operation is successful.
 If the _success_count_ is 0, and _failed_count_ is 1, Check the database and see the _failure_reason_ node in the JSON document.
 
--  To validate if the retry is working, you can pass incorrect values in the _store_ api payload and then invoke, the retry api. The retry api,  It will look like this
+5. To validate if the retry is working, you can pass incorrect values in the _store_ api payload and then invoke, the retry api. The retry api,  It will look like this
 https://[host-name]/stream/retry. The curl command will look like below.
 
 
