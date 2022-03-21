@@ -193,12 +193,9 @@ It also contains an option to set the number of times retry should happen using 
 
 This Function queries the database for records with _status_ as _failed_ and with _status_code_ matching the _retry_codes_. If the processing of record has already been tried to a number equal to _no_of_times_to_retry_, then those records are skkiped. This api call, sends a response as below
 
+`{"total_processed_records":1,"success_count":0,"failure_count":1,"skipped_count":0,"has_next:"false"}`
 
-
-`{"total_processed_records":1,"success_count":0,"failure_count":1,"retrial_count_reached":0,"has_next:"false"}`
-
-It also informs whether end of Stream has reached, so that further call for retrial can be stopped if there is no more message to process.
-
+In case of retry, the response informs, the number of records skipped from processing since retrial count has reached for those records. This is indicated by the value in _skipped_count_ .
 
 
 ## Installation
@@ -237,34 +234,38 @@ It also informs whether end of Stream has reached, so that further call for retr
 
 ### Running the sample
 
-1. To run the sample, get the API Gateway URL corresponding to _sync_ route. It will look like following, https://[host-name]/jsondb/store
+1. 
+
+- [ ] 2. To run the sample, get the Endpoint of the API Gateway deployment _SyncUsingJSONDB_. 
+- [ ] 
+- [ ] 2. Append the Endpoint with the path /store. The API will look like this, https://[host-name]/jsondb/store
+- [ ] 
+- [ ] 3. The curl command will look this,
 
 
-A sample json payload is given below. You can have POST, PUT and DELETE operatons. Change the _targetRESTApi_ and _targetRESTApiOperation_ values based on your target application.
-Any REST API headers should be passed as key, value pairs in _targetRestApiHeaders_.
-```
-{
-	"streamKey": "key1",
-	"streamMessage": {
-	   "vaultSecretName":"789",  
-	    
-		"targetRestApi": "https://g....../latest/orders",
+```curl --location --request POST 'https://pfk2ep3pw3x3tcx4iemcx4gj4q.apigateway.us-ashburn-1.oci.customer-oci.com/jsondb/store' \
+--header 'Authorization: [{"key":"Authorization","value":"Basic YWRtaW46V2VsY29tZTEyMzQq","description":""}]' \
+--header 'Content-Type: text/plain' \
+--data-raw '{
+       "createdDate":"2022-03-14 11:35:49.966290000",
+	   "vaultSecretName":"testjan1test",
+		"targetRestApi": "https://g4kz1wyoyzrtvap-jsondb.adb.us-ashburn-1.oraclecloudapps.com/ords/admin/soda/latest/orders",
 		"targetRestApiOperation": "POST",
 		"targetRestApiPayload": {
-			"orderid": "18jan",
-			"PO": "18jan"
-		},
-		"targetRestApiHeaders": [{
-				"key": "Content-Type",
-				"value": "application/json"
+			"orderid": "20jan1",
+			"PO": "19jan"
+	},
+		"targetRestApiHeaders": {
+			 "Content-Type": "application/json"
 			}
-		]
-	}
+		
+	
 
-}
-```
+}' ```
 
-This API call will insert a record in the collection called _datasync_collection_ in AJD. The record will be stored in the JSON_DOCUMENT column in the table.
+
+
+This API call will insert a record in the collection called _datasync_collection_ in AJD. The JSON payload will be stored in the JSON_DOCUMENT column in the table, _DataSyncCollection_. Check the table to verify if the record is successfully inserted. You can use 
 
 1. Run the process api,https://[host-name]/jsondb/process . The response payload will contain,information on how many records were processed and the success_count/Failure_count.
 ``` {"total_processed_records":5,"success_count":5,"failure_count":0,"has_next:"true"}```
