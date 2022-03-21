@@ -234,32 +234,31 @@ In case of retry, the response informs, the number of records skipped from proce
 
 ### Running the sample
 
-1. - Make sure that a schema is created in the AJD and you are able to connect to the schema. 
+1. Make sure that a schema is created in the AJD and you are able to connect to the schema. 
 
-2. - Get the Endpoint of the API Gateway deployment _SyncUsingJSONDB_.  Append the Endpoint with the path /store. The API will look like this, https://[host-name]/jsondb/store 
+2. Get the Endpoint of the API Gateway deployment _SyncUsingJSONDB_.  Append the Endpoint with the path /store. The API will look like this, https://[host-name]/jsondb/store 
 
 3.  Make the REST call to the above  endpoint.  The curl command will look this,
 
+		curl --location --request POST 'https://pfk2ep3pw3x3tcx4iemcx4gj4q.apigateway.us-ashburn-1.oci.customer-oci.com/jsondb/store' \
+		--header 'Authorization: [{"key":"Authorization","value":"Basic YWRtaW46V2VsY29tZTEyMzQq","description":""}]' \
+		--header 'Content-Type: text/plain' \
+		--data-raw '{
+			"createdDate":"2022-03-14 11:35:49.966290000",
+			"vaultSecretName":"testjan1test",
+				"targetRestApi": "https://g4kz1wyoyzrtvap-jsondb.adb.us-ashburn-1.oraclecloudapps.com/ords/admin/soda/latest/orders",
+				"targetRestApiOperation": "POST",
+				"targetRestApiPayload": {
+					"orderid": "20jan1",
+					"PO": "19jan"
+			},
+				"targetRestApiHeaders": {
+					"Content-Type": "application/json"
+					}
+				
+			
 
-```curl --location --request POST 'https://pfk2ep3pw3x3tcx4iemcx4gj4q.apigateway.us-ashburn-1.oci.customer-oci.com/jsondb/store' \
---header 'Authorization: [{"key":"Authorization","value":"Basic YWRtaW46V2VsY29tZTEyMzQq","description":""}]' \
---header 'Content-Type: text/plain' \
---data-raw '{
-       "createdDate":"2022-03-14 11:35:49.966290000",
-	   "vaultSecretName":"testjan1test",
-		"targetRestApi": "https://g4kz1wyoyzrtvap-jsondb.adb.us-ashburn-1.oraclecloudapps.com/ords/admin/soda/latest/orders",
-		"targetRestApiOperation": "POST",
-		"targetRestApiPayload": {
-			"orderid": "20jan1",
-			"PO": "19jan"
-	},
-		"targetRestApiHeaders": {
-			 "Content-Type": "application/json"
-			}
-		
-	
-
-}' ``` 
+		}'
 
 This API call will insert a record in the collection called _datasync_collection_ in AJD. The JSON payload will be stored in the JSON_DOCUMENT column in the table, _DataSyncCollection_. Check the table to verify if the record is successfully inserted. You can use the Database Actions menu in AJD to inspect the databse contents. There are various options available once the Database Actions is launched, like SQL, JSON etc.
 
@@ -268,36 +267,36 @@ The inserted JSON document in the table , will have an additional node called , 
 
 4. Next,  Run the process api,https://[host-name]/jsondb/process. The curl command will look this,
 
-``` curl --location --request POST 'https://pfk2ep3pw3x3tcx4iemcx4gj4q.apigateway.us-ashburn-1.oci.customer-oci.com/jsondb/process/retry' \
---header 'Authorization: Basic YWRtaW46V2VsY29tZTEyMzQq' \
---header 'Content-Type: text/plain' \
---data-raw '{
-	
-	"no_of_records_to_process": 2
-	
-   
-}'``` 
-
+		curl --location --request POST 'https://pfk2ep3pw3x3tcx4iemcx4gj4q.apigateway.us-ashburn-1.oci.customer-oci.com/jsondb/process/retry' \ 
+		--header 'Authorization: Basic YWRtaW46V2VsY29tZTEyMzQq' \
+		--header 'Content-Type: text/plain' \
+		--data-raw '{
+			
+			"no_of_records_to_process": 2
+			
+		
+		}'
+		
 Check the response, to see if the _total_processed_records_ is 1 and _success_count_ is 1. If _success_count_ is 1, check the Target APplication and verify if the REST api operation is successful.
 If the _success_count_ is 0, and _failed_count_ is 1, Check the database and see the _failure_reason_ node in the JSON document.
 
 5. To validate if the retry is working, you can pass incorrect values in the _store_ api payload and then invoke, the retry api. The retry api,  It will look like this
 https://[host-name]/stream/retry. The curl command will look like below.
 
+		curl --location --request POST 'https://pfk2ep3pw3x3tcx4iemcx4gj4q.apigateway.us-ashburn-1.oci.customer-oci.com/jsondb/process/retry' \
+		--header 'Authorization: Basic YWRtaW46V2VsY29tZTEyMzQq' \
+		--header 'Content-Type: text/plain' \
+		--data-raw '{
+			
+			"no_of_records_to_process": 2,
+			"retry_codes":"503,500",
+			"no_of_times_to_retry":3
+		
+		}'
 
-```
-curl --location --request POST 'https://pfk2ep3pw3x3tcx4iemcx4gj4q.apigateway.us-ashburn-1.oci.customer-oci.com/jsondb/process/retry' \
---header 'Authorization: Basic YWRtaW46V2VsY29tZTEyMzQq' \
---header 'Content-Type: text/plain' \
---data-raw '{
-	
-	"no_of_records_to_process": 2,
-	"retry_codes":"503,500",
-    "no_of_times_to_retry":3
-   
-}'
 
-```
+
+
 
 Replace the retry_codes with _status_code_ of the failed records. You can also change _no_of_records_to_process_ to a higher or lower value, depending on the Function time out._no_of_times_to_retry_ can also be changed to a different no. based on your requirement.
 
