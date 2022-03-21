@@ -32,17 +32,37 @@ Choosing OCI Cloud Native Services as middle tier has the following benefits,
 ## Services / libraries used in this sample
 
 
-[Autonomous JSON DB](https://www.oracle.com/cloud-native/streaming/)
+[Autonomous JSON DB](https://www.oracle.com/autonomous-database/)
 
 
-Streaming is a good fit for any use case in which data is produced and processed continually and sequentially in a publish-subscribe messaging model. Additionally, it can connect to Service Connector Hub which means that you can designate a stream as a data source, use Oracle Cloud Infrastructure Functions to process the stream's messages. It is also is  a fully managed and scalable OCI service. Customers need to pay only for what they use, making the service attractive for workloads with large spikes in usage.
+Oracle Autonomous JSON Database is a cloud document database service that makes it simple to develop JSON-centric applications. It features NoSQL-style document APIs (Oracle SODA and Oracle Database API for MongoDB), serverless scaling, high performance ACID transactions, comprehensive security, and low pay-per-use pricing. Autonomous JSON Database automates provisioning, configuring, tuning, scaling, patching, encrypting, and repairing of databases, eliminating database management and delivering 99.95% availability.
 
-There are 2 types of streams used.
+[SODA]
 
-•	A stream, _DataSyncStream_ for storing the posted data from the source application/s.
+This sample uses SODA APIs to access Autonomous JSON databse. SODA abstractions hide the complexities of SQL and client programming using
 
-•	A stream or streams for storing errored data. Posting of data to target application/s can error out due to multiple reasons, like server unavailability, data inconsistency, error on the server side while processing and so forth. Some of these errors are recoverable, say an error occurred due to server unavailability is recoverable when server is available. Some of them would be unrecoverable, i.e. the processing of data will not be successful even after several retrials. It is important to categorize and re-process errored messages based on the error type to avoid data loss. In the sample code developed for this pattern, retrial is based on the REST API response code. Please note that, the error type and retrial decision is based on the business use case and using REST API response code may not be suitable for all business cases.
-The data will be moved from _DataSyncStream_  to Error streams based on the error type and classification. 
+Collection
+
+Document
+
+A SODA collection is analogous to an Oracle Database table or view.  A document collection contains documents. 
+Collections are persisted in an Oracle Database schema (also known as a database user). In some SODA implementations a database schema is referred to as a SODA database.
+
+Even Though SODA is designed primarily for working with JSON documents, but a document can be of any Multipurpose Internet Mail Extensions (MIME) type.
+
+In addition to its content, a document has other document components, including a unique identifier, called its key, a version, a media type (type of content), and the date and time that it was created and last modified. 
+
+The key is typically assigned by SODA when a document is created, but client-assigned keys can also be used. Besides the content and key (if client-assigned), you can set the media type of a document. The other components are generated and maintained by SODA. All components other than content and key are optional.
+
+A SODA document is analogous to, and is in fact backed by, a row of a database table or view. The row has one column for each document component: key, content, version, and so on.
+
+In addition to the documents it contains, a collection also has associated collection metadata. This specifies various details about the collection, such as its storage, whether it should track version and time-stamp document components, how such components are generated, and whether the collection can contain only JSON documents.
+
+In some contexts collection metadata is represented as a JSON document. This metadata document is sometimes called a collection specification. You can supply a custom collection specification when you create a collection, to provide metadata that differs from that provided by default.
+
+SODA provides CRUD operations on documents. JSON documents can additionally be queried, using query-by-example (QBE) patterns, also known as filter specifications. A filter specification is itself a JSON object.
+
+The posted data from the Source Application are stored in a collecton called _DataSyncCollection_. 
 
 
 [Functions](https://www.oracle.com/cloud-native/functions/)
@@ -90,55 +110,46 @@ A vault called, _DataSyncVault_ is used to store the auth tokens as secrets.
 
 ## Process Flow
 
-Step 1.	Source application/s posts data to the REST API exposed by the API Gateway. The API gateway  has an API deployment that invokes the Function _PopulateDataStreamFunction_.
+Step 1.	Source application/s posts data to the REST API exposed by the API Gateway. The API gateway  has an API deployment that invokes the Function _store-data_.
 
 The REST API call to API Gateway and sample json payload is given below. 
-https://[hostname]/stream/sync
+https://[hostname]/jsondb/store
 
 
 ```
 {
-	"streamKey": "key1",
-	"streamMessage": {
-	   "vaultSecretName":"789",  
-	    
-		"targetRestApi": "https://g4kz1wyoyzrtvap-json......./....../latest/orders",
+       "created_date":"2022-03-14 11:35:49.966290000",
+	   "vaultSecretName":"testjan1test",
+		"targetRestApi": "https://g4kz1wyoyzrtvap-jsondb.adb.us-ashburn-1.oraclecloudapps.com/ords/admin/soda/latest/orders",
 		"targetRestApiOperation": "POST",
 		"targetRestApiPayload": {
-			"orderid": "18jan",
-			"PO": "18jan"
-		},
-		"targetRestApiHeaders": [{
-				"key": "Content-Type",
-				"value": "application/json"
+			"orderid": "20jan1",
+			"PO": "19jan"
+	},
+		"targetRestApiHeaders": {
+			 "Content-Type": "application/json"
 			}
-		]
-	}
+		
+	
 
 }
 ```
 
 
-
-The json payload contains  _streamKey_ and _streamMessage_ nodes. _streamKey_ is the key to be sent to the _DataSyncStream_ and _streamMessage_ is the value to be sent to the _DataSyncStream_. _streamKey_  can be empty if a key is not required while populating streams.
-
-The _streamMessage_ section  is self-contained i.e.  it contains the target application API in _targetRestApi_ node,  target application’s Rest API operation in _targetRestApiOperation_ node and a target application’s Rest API payload in _targetRestApiPayload_ node. Headers for target REST API call should be sent as key , value pair in _targetRestApiHeaders_ node.
+The payload  is self-contained i.e.  it contains the target application API in _targetRestApi_ node,  target application’s Rest API operation in _targetRestApiOperation_ node and a target application’s Rest API payload in _targetRestApiPayload_ node. Headers for target REST API call should be sent as key , value pair in _targetRestApiHeaders_ node.
 
 In most cases the target application API will need a security token. Usually this token is passed in the authorization header of the POST call to API Gateway. This token needs to be securely stored for target application API processing later by Functions. For this purpose,  the json payload contains a  node called _vaultSecretName_ which is an id that should be unique to messages that has the same auth token passed in authorization header.  The unique id will be used as a secret name in the Vault and the secret content will be the auth token passed in the authorization header. When the auth token in the authorization header changes, a new value should be passed in the _vaultSecretName_ for those messages.
 
 
-Step 2.	_PopulateDataStreamFunction_  parses the json payload and creates a new stream message with Key as _streamKey_ and value as _streamMessage_ and pushes it to _DataSyncStream_. It also reads the _vaultSecretName_ and creates a secret in Vault with content as the authorization header token and name as _vaultSecretName_.
+Step 2.	_store-data_  parses the json payload and inserts the record into _datasync_collection_. It also reads the _vaultSecretName_ and creates a secret in Vault with content as the authorization header token and name as _vaultSecretName_.
 
-Step 3.	_DataSyncStream_  is connected to the Function, _ReadDataStreamFunction_ through a Service Connector. Service Connector invokes this Function when _DataSyncStream_ is populated with new messages.
+Step 3.	_process-data_  Function which is exposed in APIGAteway, can be invoked sequentially to process the records. The call will be https://[host-name]/stream/process. This invocation can be automated. This function reads through the DB and looks for records that are of _status_ as _not_processed_, ordered by the _created_date_.
 
-Step 4. _ReadDataStreamFunction_ processes the messages in DataSyncStream by reading the _targetRestApiPayload_ section and then invokes the target application API. If an error occurs, say if the server is unavailable Function pushes the message to error streams defined in the Function Application configuration variables.
-
-
-Step 5.	Lastly there is an option to retry the messages in Error streams using an API Gateway API, that exposes the _RetryFunction_.
+Step 5.	Lastly there is an option to retry the failed messages  using an API Gateway API, that exposes the _process-data_ Function, in a route _/process/retry_
 
 The sample REST API call and  payload will look like this.
 
-https://[host-name]/stream/retry
+https://[host-name]/jsondb/process/retry
 
 ```
 {
@@ -217,7 +228,7 @@ It also informs whether end of Stream has reached, so that further call for retr
 
 ### Running the sample
 
-1. To run the sample, get the API Gateway URL corresponding to _sync_ route. It will look like following, https://[host-name]/stream/sync
+1. To run the sample, get the API Gateway URL corresponding to _sync_ route. It will look like following, https://[host-name]/jsondb/store
 
 
 A sample json payload is given below. You can have POST, PUT and DELETE operatons. Change the _targetRESTApi_ and _targetRESTApiOperation_ values based on your target application.
@@ -244,13 +255,16 @@ Any REST API headers should be passed as key, value pairs in _targetRestApiHeade
 }
 ```
 
-This API call will push the _streamMessage_ part of the payload to _DataSyncStream_ . The Service Connector which connects _DataSyncStream_  to Functions will get invoked and the associated Task Function ,_ProcessDataStreamFunction_ will read the stream message and process the messages.
+This API call will insert a record in the collection called _datasync_collection_ in AJD. The record will be stored in the JSON_DOCUMENT column in the table.
 
-2. Check the target application to see the operations invoked were processed correctly.
+1. Run the process api,https://[host-name]/jsondb/process . The response payload will contain,information on how many records were processed and the success_count/Failure_count.
+``` {"total_processed_records":5,"success_count":5,"failure_count":0,"has_next:"true"}```
+   
+3. Check the target application to see the operations invoked were processed correctly. You can also login to AJD and check the status field of the processed records.
 
-3. To check for retry and failures, you can pass incorrect values in the payload and see whether the Error Streams got populated correctly. In case of errors, you will also receive notifications in the mail id you entered in Notifications Service. You can also see the errored messages in the Object Storage Bucket.
+2. To check for retry and failures, you can pass incorrect values in the payload and see whether the Error Streams got populated correctly. In case of errors, you will also receive notifications in the mail id you entered in Notifications Service. You can also see the errored messages in the Object Storage Bucket.
 
-4. To test a retry in case of failure, call the API Gateway REST API, corresponding to _retry_ route. It will look like this
+3. To test a retry in case of failure, call the API Gateway REST API, corresponding to _retry_ route. It will look like this
 https://[host-name]/stream/retry
 
 Sample payload is given below.
@@ -292,24 +306,19 @@ Please note that the sample given is only to demonstrate a pattern and mostly yo
 
 While enhancing the sample do consider the following.
 
-•	The function application configuration has a few error stream OCIDs defined. Add new error streams or modify the existing ones based on your requirement. Note that, the _ReadDataStreamFunction_ code should be modified if changes are made in the configuration keys.
-
-•	Change the _errormapping_ section of RetryFunction payload, if needed. The sample makes use of the response code for mapping streams. Change this, if a different type of mapping is required. _RetryFunction_ code also would need change if there is a change in the payload.
 
 •	You will need a process to delete the Vault secrets once they are no longer needed. One option is to write a Function, that can do the clean-up task periodically.
 
-•	_RetryFunction_ payload has the node _noOfMessagesToProcess_ to set the no of messages to process in a single call. Do change this to a smaller number if processing of each message takes time and there is a possibility of Function to time out.
+•	retry and process call payload has the node _no_of_records_to_process_ to set the no of messages to process in a single call. Do change this to a smaller number if processing of each message takes time and there is a possibility of Function to time out.
 
-•	Consuming messages from a stream requires you to: create a cursor, then use the cursor to read messages. A cursor is a pointer to a location in a stream. One of the option is to use a  specific offset to start the reading of message. This is called an AT_OFFSET cursor. 
-RetryFunction in the sample uses the AT_OFFSET cursor for consuming message. It accepts _readAfterOffset_ as the starting offset to read message. It returns the last successfully read offset. To process large number of messages together, store returned offset value in a location and pass it as  value of _readAfterOffset_ in json payload and  invoke _RetryFunction_ sequentially.
+•	retry and process call response  _has_next_ node which is either true or false. It indicates if there are further records available for processing.
+ To process large number of messages together,invoke retry sequentially after checking if  _has_next_ node value of the previous call.
 
-•	The sample function handles PUT, POST and DELETE operations. To add or remove operations, change the _ReadDataStreamFunction_ and _RetryFunction_ code. Also change the _targetRestApiOperation_ section of the payload.
+•	The sample function handles PUT, POST and DELETE operations. To add or remove operations, change the _process-data_ Function code. Also change the _targetRestApiOperation_ section of the payload.
 
 •	The source application is responsible for sending unique value in the vaultsecretname for messages having same auth token.
 
 •	It is assumed that the authentication token to invoke the target application’s REST api is passed in the “Authorization” Header. There is a possibility that authorization token stored in Vault expires while retrying the message. This scenario is not considered in the sample. 
-
-•	It is also possible to move the common methods in Functions to helper classes and reusing them.
 
 
 ## Troubleshooting
