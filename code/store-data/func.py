@@ -15,18 +15,22 @@ from fdk import response
 
 
 def get_dbwallet_from_autonomousdb():
-	signer = oci.auth.signers.get_resource_principals_signer()  # authentication based on instance principal
-	atp_client = oci.database.DatabaseClient(config={}, signer=signer)
-	atp_wallet_pwd = ''.join(random.choices(string.ascii_uppercase + string.digits, k=15))  # random string
-	# the wallet password is for creation of the jks
-	atp_wallet_details = oci.database.models.GenerateAutonomousDatabaseWalletDetails(password=atp_wallet_pwd)
+	try:
+		signer = oci.auth.signers.get_resource_principals_signer()  # authentication based on instance principal
+		atp_client = oci.database.DatabaseClient(config={}, signer=signer)
+		atp_wallet_pwd = ''.join(random.choices(string.ascii_uppercase + string.digits, k=15))  # random string
+		# the wallet password is for creation of the jks
+		atp_wallet_details = oci.database.models.GenerateAutonomousDatabaseWalletDetails(password=atp_wallet_pwd)
 
-	obj = atp_client.generate_autonomous_database_wallet(adb_ocid, atp_wallet_details)
-	with open(dbwalletzip_location, 'w+b') as f:
-		for chunk in obj.data.raw.stream(1024 * 1024, decode_content=False):
-			f.write(chunk)
-	with ZipFile(dbwalletzip_location, 'r') as zipObj:
-		zipObj.extractall(dbwallet_dir)
+		obj = atp_client.generate_autonomous_database_wallet(adb_ocid, atp_wallet_details)
+		with open(dbwalletzip_location, 'w+b') as f:
+			for chunk in obj.data.raw.stream(1024 * 1024, decode_content=False):
+				f.write(chunk)
+		with ZipFile(dbwalletzip_location, 'r') as zipObj:
+			zipObj.extractall(dbwallet_dir)
+	except Exception as ex:
+		logging.getLogger().error("Failed to retrieve the secret content", ex)
+		raise
 
 
 def get_secret_from_vault(vault_secret_name):
@@ -85,8 +89,10 @@ with open(dbwallet_dir + '/sqlnet.ora') as orig_sqlnetora:
 with open(dbwallet_dir + '/sqlnet.ora', "w") as new_sqlnetora:
 	new_sqlnetora.write(new_text)
 dbpwd = get_secret_from_vault('db_pwd')
-
+start1 = timer()
 dbpool = cx_Oracle.SessionPool(dbuser, dbpwd, dbsvc, min=1, max=1, encoding="UTF-8", nencoding="UTF-8")
+end1 = timer()
+print('INFO: inserted in {} sec'.format(end1 - start1), flush=True)
 
 
 #
@@ -99,15 +105,22 @@ def handler(ctx, data: io.BytesIO = None):
 			raise KeyError('No keys in payload')
 
 		payload = json.loads(payload_bytes)
+		if "createdDate" not in payload:
+			raise KeyError('createdDate not found in payload')
 		payload["status"] = "not_processed"
 		auth_token = ctx.Headers().get("authorization")
-
-		logging.getLogger().info("auth_token", auth_token)
 
 		vault_secret_name = payload["vaultSecretName"]
 		if not is_secret_in_vault(vault_secret_name):
 			create_secret_in_vault(auth_token, vault_secret_name)
-
+	except Exception as e:
+		logging.getLogger().error(e)
+		return response.Response(
+			ctx,
+			response_data="Check if all keys including vaultSecretName, createdDate is set",
+			status_code=500
+		)
+	try:
 		with dbpool.acquire() as dbconnection:
 			dbconnection.autocommit = True
 
@@ -123,17 +136,25 @@ def handler(ctx, data: io.BytesIO = None):
 			# document
 			collection.insertOneAndGet(payload)
 			end = timer()
-			print('INFO: inserted in {} sec'.format(end - start), flush=True)
-		return response.Response(
-			ctx,
-			response_data="success" + format(end - start)
-		)
 	except Exception as e:
 		logging.getLogger().error(e)
 		return response.Response(
 			ctx,
-			response_data="failed"
+			response_data="Failed due to " + str(e),
+			status_code=500
 		)
+	return response.Response(
+		ctx,
+		response_data="success" + format(end - start) + ":***" + format(end1 - start1)
+	)
+
+
+# except Exception as e:
+# 	logging.getLogger().error(e)
+# 	return response.Response(
+# 		ctx,
+# 		response_data="failed"
+# 	)
 
 
 # Create a new secret in vault
