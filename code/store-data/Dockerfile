@@ -3,7 +3,7 @@ WORKDIR /function
 RUN groupadd --gid 1000 fn && adduser --uid 1000 --gid fn fn
 
 ARG release=19
-ARG update=3
+ARG update=14
 
 RUN  yum-config-manager --disable ol7_developer_EPEL && \
      yum-config-manager --enable ol7_optional_latest && \
