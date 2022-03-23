@@ -238,11 +238,11 @@ In case of retry, the response informs, the number of JSON documents skipped fro
 
 		curl --location --request POST 'https://pfk2ep3pw3x3tcx4iemcx4gj4q.apigateway.us-ashburn-1.oci.customer-oci.com/jsondb/store' \
 		--header 'Authorization: Basic YWRtaW46V2VsY29tZTEyMzQq' \
-		--header 'Content-Type: text/plain' \
+		--header 'Content-Type: application/json' \
 		--data-raw '{
 			
 			"vaultSecretName":"mar1234",
-				"targetRestApi": "https://g4kz1wyoyzrtvap-jsondb.adb.us-ashburn-1.oraclecloudapps.com/ords/admin/soda/latest/orders",
+				"targetRestApi": "https://g4kz1wyoy/latest/orders",
 				"targetRestApiOperation": "POST",
 				"targetRestApiPayload": {
 					"orderid": "20jan1",
@@ -256,16 +256,18 @@ In case of retry, the response informs, the number of JSON documents skipped fro
 
 		}
 
+Change the values based on your Target application's REST api. Pass the authorization header to connect to target application's REST end point.
+
 This API call will insert a record in the collection called _datasync_collection_ in AJD. The JSON payload will be stored in the JSON_DOCUMENT column in the table, _DataSyncCollection_. Check the table to verify if the record is successfully inserted. You can use the Database Actions menu in AJD to inspect the databse contents. There are various options available once the Database Actions is launched, like SQL, JSON etc.
 
-The inserted JSON document in the table , will have an additional key called , _status_ with value as _not_processed_
+The inserted JSON document in the table , will have 2 additional keys called , _status_ with value as _not_processed_ and _createdDate_ with value as time of data insertion.
 
 
 4. Next,  Run the process api,https://[host-name]/jsondb/process. The curl command will look this,
 
 		curl --location --request POST 'https://pfk2ep3pw3x3tcx4iemcx4gj4q.apigateway.us-ashburn-1.oci.customer-oci.com/jsondb/process/retry' \ 
 		--header 'Authorization: Basic YWRtaW46V2VsY29tZTEyMzQq' \
-		--header 'Content-Type: text/plain' \
+		--header 'Content-Type: application/json' \
 		--data-raw '{
 			
 			"no_of_records_to_process": 2
@@ -276,12 +278,14 @@ The inserted JSON document in the table , will have an additional key called , _
 Check the response, to see if the _total_processed_records_ is 1 and _success_count_ is 1. If _success_count_ is 1, check the Target APplication and verify if the REST api operation is successful.
 If the _success_count_ is 0, and _failed_count_ is 1, Check the database and see the _failure_reason_ key in the JSON document.
 
-5. To validate if the retry is working, you can pass incorrect values in the _store_ api payload and then invoke, the retry api. The retry api,  It will look like this
-https://[host-name]/stream/retry. The curl command will look like below.
+5. To validate if the retry is working, you can pass incorrect values in the _store_ api payload and then invoke, the retry api. The retry api,  will look like this
+https://[host-name]/stream/retry. 
+
+The curl command will look like below.
 
 		curl --location --request POST 'https://pfk2ep3pw3x3tcx4iemcx4gj4q.apigateway.us-ashburn-1.oci.customer-oci.com/jsondb/process/retry' \
 		--header 'Authorization: Basic YWRtaW46V2VsY29tZTEyMzQq' \
-		--header 'Content-Type: text/plain' \
+		--header 'Content-Type: application/json'\
 		--data-raw '{
 			
 			"no_of_records_to_process": 2,
@@ -305,9 +309,9 @@ While enhancing the sample do consider the following.
 
 •	You will need a process to delete the Vault secrets once they are no longer needed. One option is to write a Function, that can do the clean-up task periodically.
 
-•	retry and process call payload has the key _no_of_records_to_process_ to set the no of messages to process in a single call. Do change this to a smaller number if processing of each message takes time and there is a possibility of Function to time out.
+•	retry and process call payload has the key _no_of_records_to_process_ to set the no of JSON documents to process in a single call. Do change this to a smaller number if processing of each document takes time and there is a possibility of Function to time out.
 
-•	retry and process call response  _has_next_ key which is either true or false. It indicates if there are further records available for processing.
+•	retry and process call response  _has_next_ key has a value either true or false. It indicates if there are further records available for processing.
  To process large number of messages together,invoke retry sequentially after checking if  _has_next_ key value of the previous call.
 
 •	The sample function handles PUT, POST and DELETE operations. To add or remove operations, change the _process-data_ Function code. Also change the _targetRestApiOperation_ section of the payload.
