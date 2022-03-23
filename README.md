@@ -196,6 +196,7 @@ In case of retry, the response informs, the number of JSON documents skipped fro
 ## Installation
 
 
+
 ### Pre-requisites
 
 1. Make sure you've setup your [API signing key](https://docs.cloud.oracle.com/iaas/Content/API/Concepts/apisigningkey.htm), installed the [Fn CLI](https://github.com/fnproject/cli), completed the [CLI configuration](https://docs.cloud.oracle.com/iaas/Content/API/Concepts/sdkconfig.htm#CLIConfiguration) steps and have setup the [OCI Registry](https://docs.cloud.oracle.com/iaas/Content/Registry/Concepts/registryoverview.htm) you want to use.
@@ -231,16 +232,16 @@ In case of retry, the response informs, the number of JSON documents skipped fro
 
 1. Make sure that a schema is created in the AJD and you are able to connect to the schema. 
 
-2. Get the Endpoint of the API Gateway deployment _SyncUsingJSONDB_.  Append the Endpoint with the path /store. The API will look like this, https://[host-name]/jsondb/store 
+2. Get the Endpoint of the API Gateway deployment _SyncUsingJSONDB_.  Append the endpoint with the path /store. The API will look like this, https://[host-name]/jsondb/store 
 
 3.  Make the REST call to the above  endpoint.  The curl command will look this,
 
 		curl --location --request POST 'https://pfk2ep3pw3x3tcx4iemcx4gj4q.apigateway.us-ashburn-1.oci.customer-oci.com/jsondb/store' \
-		--header 'Authorization: [{"key":"Authorization","value":"Basic YWRtaW46V2VsY29tZTEyMzQq","description":""}]' \
+		--header 'Authorization: Basic YWRtaW46V2VsY29tZTEyMzQq' \
 		--header 'Content-Type: text/plain' \
 		--data-raw '{
-			"createdDate":"2022-03-14 11:35:49.966290000",
-			"vaultSecretName":"testjan1test",
+			
+			"vaultSecretName":"mar1234",
 				"targetRestApi": "https://g4kz1wyoyzrtvap-jsondb.adb.us-ashburn-1.oraclecloudapps.com/ords/admin/soda/latest/orders",
 				"targetRestApiOperation": "POST",
 				"targetRestApiPayload": {
@@ -253,7 +254,7 @@ In case of retry, the response informs, the number of JSON documents skipped fro
 				
 			
 
-		}'
+		}
 
 This API call will insert a record in the collection called _datasync_collection_ in AJD. The JSON payload will be stored in the JSON_DOCUMENT column in the table, _DataSyncCollection_. Check the table to verify if the record is successfully inserted. You can use the Database Actions menu in AJD to inspect the databse contents. There are various options available once the Database Actions is launched, like SQL, JSON etc.
 
