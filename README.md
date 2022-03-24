@@ -231,7 +231,9 @@ In case of retry, the response informs, the number of JSON documents skipped fro
 
 ### Running the sample
 
-1. Make sure that a schema is created in the AJD and you are able to connect to the schema. 
+1. Make sure that a database user is created in the AJD and you are able to connect to the database user. 
+
+2. Create a new secret in Vault _DataSync_Vault_ with name as _db_pwd_. Enter your databse user password as the secret content.
 
 2. Get the Endpoint of the API Gateway deployment _SyncUsingJSONDB_.  Append the endpoint with the path /store. The API will look like this, https://[host-name]/jsondb/store 
 
