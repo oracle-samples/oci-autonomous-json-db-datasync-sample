@@ -35,7 +35,8 @@ Choosing OCI Cloud Native Services as middle tier has the following benefits,
 [Autonomous JSON DB](https://www.oracle.com/autonomous-database/)
 
 
-Oracle Autonomous JSON Database is a cloud document database service that makes it simple to develop JSON-centric applications. 
+Oracle Autonomous JSON Database is a cloud document database service that makes it simple to develop JSON-centric applications. Autonomous Database comes with several built-in features like Oracle Apex, Database Actions- View data using SQL, JSON, REST, DataModelers, Administration Tools etc.
+
 The AJD used in this sample is named as _jsonDB_.
 
 
@@ -305,6 +306,8 @@ Replace the retry_codes with _status_code_ of the failed records. You can also c
 Please note that the sample given is only to demonstrate a pattern and mostly you will need to enhance it to fit into your needs.
 
 While enhancing the sample do consider the following.
+
+-  You can use Oracle Apex to build an adminstration tool to view the data and take corrective actions in case of data failure.
 
 
 •	You will need a process to delete the Vault secrets once they are no longer needed. One option is to write a Function, that can do the clean-up task periodically.
