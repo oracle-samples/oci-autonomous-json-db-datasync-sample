@@ -1,3 +1,5 @@
+# Copyright (c)  2022,  Oracle and/or its affiliates.
+# Licensed under the Universal Permissive License v 1.0 as shown at https://oss.oracle.com/licenses/upl.
 FROM oraclelinux:7-slim
 WORKDIR /function
 RUN groupadd --gid 1000 fn && adduser --uid 1000 --gid fn fn

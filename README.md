@@ -343,6 +343,10 @@ Oracle takes security seriously and has a dedicated response team for [reporting
 
 We welcome all contributions to this sample and have a [contribution guide](./CONTRIBUTING.md) for you to follow if you'd like to contribute.
 
+## Distribution
+Developers choosing to distribute a binary implementation of this project are responsible for obtaining and providing all required licenses and copyright notices for the third-party code used in order to ensure compliance with their respective open source licenses.
+
+
 ## Help
 
 If you need help with this sample, please log an issue within this repository and the code owners will help out where we can.
