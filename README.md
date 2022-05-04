@@ -219,24 +219,21 @@ _AJD_SCHEMA_NAME_ is the database schema/user to connect to.
 ![Application configuration variables]( /image/ApplicationConfiguration.png "Application configuration variables")
 
 4. Create an API Gateway deployment with PATH PREFIX as _jsondb_. Create 3 routes in this deployment
+
+**Route1**
+
 ![Route1]( /image/Route1_RMblog2.png "Route1")
+
+**Route2**
+
 ![Route2]( /image/Route2_RMblog2.png "Route2")
+
+**Route3**
+
 ![Route3]( /image/Route3_RMblog2.png "Route3")
 
-3. Run following Terraform  commands to create all your resources in OCI. You will be asked the provide variable values. 
 
-	- _terraform init_
-
-	- _terraform plan_
-
-	- _terraform apply_
-
-
-4. This step creates all the resources in OCI , including the setup of a VCN, an API Gateway, Streams, Service Connectors, Notifications,  Object Storage Bucket,uploading the Oracle Cloud Functions and creating an OCI Vault.
-
-5. Log In to OCI console and verify whether all OCI resources are created.
-
-6. Add [IAM policies](https://docs.oracle.com/en-us/iaas/Content/Identity/Concepts/commonpolicies.htm) related to usage of Functions, Streams, Service Connector, Object Storage and Notifications
+5. Add [IAM policies](https://docs.oracle.com/en-us/iaas/Content/Identity/Concepts/commonpolicies.htm) related to usage of Functions and API Gateway.
 
 
 
@@ -250,8 +247,8 @@ _AJD_SCHEMA_NAME_ is the database schema/user to connect to.
 
 3.  Make the REST call to the above  endpoint.  The curl command will look this,
 
-		curl --location --request POST 'https://pfk2ep3pw3x3tcx4iemcx4gj4q.apigateway.us-ashburn-1.oci.customer-oci.com/jsondb/store' \
-		--header 'Authorization: Basic YWRtaW46V2VsY29tZTEyMzQq' \
+		curl --location --request POST 'https://....us-ashburn-1.oci.customer-oci.com/jsondb/store' \
+		--header 'Authorization: Bearer YWRtaW46V2VsY29tZTEyMzQq' \
 		--header 'Content-Type: application/json' \
 		--data-raw '{
 			
