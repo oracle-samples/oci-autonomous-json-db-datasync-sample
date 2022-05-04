@@ -219,9 +219,9 @@ _AJD_SCHEMA_NAME_ is the database schema/user to connect to.
 ![Application configuration variables]( /image/ApplicationConfiguration.png "Application configuration variables")
 
 4. Create an API Gateway deployment with PATH PREFIX as _jsondb_. Create 3 routes in this deployment
-![Route1]( /image/Route1_RMblog1.png "Route1")
-![Route2]( /image/Route1_RMblog1.png "Route2")
-![Route3]( /image/Route1_RMblog1.png "Route3")
+![Route1]( /image/Route1_RMblog2.png "Route1")
+![Route2]( /image/Route2_RMblog2.png "Route2")
+![Route3]( /image/Route3_RMblog2.png "Route3")
 
 3. Run following Terraform  commands to create all your resources in OCI. You will be asked the provide variable values. 
 
