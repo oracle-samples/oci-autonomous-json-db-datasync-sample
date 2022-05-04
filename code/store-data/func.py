@@ -1,18 +1,17 @@
-
 # Copyright (c)  2022,  Oracle and/or its affiliates.
 # Licensed under the Universal Permissive License v 1.0 as shown at https://oss.oracle.com/licenses/upl.import io
+import base64
+import datetime
+import io
 import json
+import logging
+import os
+import random
+import string
+from zipfile import ZipFile
+
 import cx_Oracle
 import oci
-import os
-from zipfile import ZipFile
-import string
-import random
-import datetime
-
-import base64
-
-import logging
 from fdk import response
 
 
@@ -34,7 +33,7 @@ def get_dbwallet_from_autonomousdb():
 		with ZipFile(dbwalletzip_location, 'r') as wallet_zip:
 			wallet_zip.extractall(dbwallet_dir)
 	except Exception as ex:
-		logging.getLogger().error("Failed to retrieve DB Wallet due to exception.", ex)
+		logging.getLogger().error(ex)
 		raise
 
 

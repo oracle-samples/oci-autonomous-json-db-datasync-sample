@@ -1,9 +1,8 @@
-
-# Copyright (c)  2022,  Oracle and/or its affiliates.
-# Licensed under the Universal Permissive License v 1.0 as shown at https://oss.oracle.com/licenses/upl.schema_version: 20180708
+schema_version: 20180708
 name: store-data
-version: 0.0.150
+version: 0.0.151
 runtime: docker
+build_image: fnproject/python:3.8-dev
+run_image: fnproject/python:3.8
 entrypoint: /python/bin/fdk /function/func.py handler
-memory: 1024
-timeout: 300
+memory: 2048

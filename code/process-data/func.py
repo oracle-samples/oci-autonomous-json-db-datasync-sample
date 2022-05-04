@@ -1,18 +1,19 @@
 # Copyright (c)  2022,  Oracle and/or its affiliates.
 # Licensed under the Universal Permissive License v 1.0 as shown at https://oss.oracle.com/licenses/upl.
+import base64
+import io
 import json
+import logging
+import os
+import random
+import string
+from urllib.parse import urlparse
+from zipfile import ZipFile
+
 import cx_Oracle
 import oci
-import os
-from zipfile import ZipFile
-import string
-import random
-import io
 import requests
-import base64
-import logging
 from fdk import response
-from urllib.parse import urlparse
 
 
 def get_dbwallet_from_autonomousdb():
@@ -33,7 +34,7 @@ def get_dbwallet_from_autonomousdb():
 		with ZipFile(dbwalletzip_location, 'r') as wallet_zip:
 			wallet_zip.extractall(dbwallet_dir)
 	except Exception as ex:
-		logging.getLogger().error("Failed to retrieve DB Wallet due to exception.", ex)
+		logging.getLogger().error(ex)
 		raise
 
 
@@ -60,6 +61,7 @@ def get_secret_from_vault(vault_secret_name):
 try:
 
 	signer = oci.auth.signers.get_resource_principals_signer()
+	RETRY_PATH = "/jsondb/process/retry"
 	if os.getenv("TNS_ADMIN") is not None:
 		dbwallet_dir = os.getenv('TNS_ADMIN')
 	else:
@@ -135,14 +137,14 @@ def handler(ctx, data: io.BytesIO = None):
 		if no_of_records_to_process <= 0:
 			raise ValueError('no_of_records_to_process must be greater than 0')
 		# If the Function call is for retry, get additional keys from payload
-		if path_param == '/jsondb/process/retry':
+		if path_param == RETRY_PATH:
 			retry_limit = int(payload["retry_limit"])
 			retry_codes = payload["retry_codes"]
 
 	except Exception as ex1:
 		logging.getLogger().error(ex1)
 
-		if path_param == '/jsondb/process/retry':
+		if path_param == RETRY_PATH:
 			message = "Missing keys- Check if no_of_records_to_process, retry_codes,retry_limit are set correctly"
 		else:
 			message = "Missing keys- Check if no_of_records_to_process is set correctly"
@@ -159,7 +161,7 @@ def handler(ctx, data: io.BytesIO = None):
 			soda = dbconnection.getSodaDatabase()
 			collection = soda.openCollection("datasync_collection")
 			# Check if it is a retry call
-			if path_param == '/jsondb/process/retry':
+			if path_param == RETRY_PATH:
 				# Filter the records with status as failed and with status_code matching the retry codes specified in payload
 				qbe = {'$query': {'status': {'$eq': 'failed'}, 'status_code': {'$in': retry_codes.split(',')}},
 					   '$orderby': [
@@ -182,7 +184,7 @@ def handler(ctx, data: io.BytesIO = None):
 					content = doc.getContent()
 					is_processed = True
 
-					if path_param == '/jsondb/process/retry':
+					if path_param == RETRY_PATH:
 						# Check how many times retrial has happened for the selected record
 						if "retry_attempts" in content:
 							# If the retrial count of the record is less than specified limit, continue processing
