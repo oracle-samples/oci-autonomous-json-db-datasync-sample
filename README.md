@@ -112,8 +112,8 @@ Step 1. Source application posts data to the API Gateway's /store route.  CURL
 
 
 
-c```
-url --location --request POST 'https://pfk2e…..apigateway.us-ashburn-1.oci.customer-oci.com/jsondb/store  --header Authorization: Bearer RsT5OjbzRn430zqMLgV3Ia' --header 'Content-Type: application/json'  --data-raw ' {
+```
+curl --location --request POST 'https://pfk2e…..apigateway.us-ashburn-1.oci.customer-oci.com/jsondb/store  --header Authorization: Bearer RsT5OjbzRn430zqMLgV3Ia' --header 'Content-Type: application/json'  --data-raw ' {
 
    "streamKey":"key_123",
 
@@ -174,6 +174,7 @@ url --location --request POST 'https://pfk2e…..apigateway.us-ashburn-1.oci.cus
 
 
 
+
 The payload is self-contained i.e. it contains the target application API in targetRestApi node, target application’s Rest API operation in targetRestApiOperation key and a target application’s Rest API payload in targetRestApiPayload node. Headers for target REST API call should be sent in targetRestApiHeaders node.
 
 In most cases the target application API will need a security token. Usually this token is passed in the authorization header of the POST call to API Gateway. This token needs to be securely stored for target application API processing later by process-data Function. For this purpose, the json payload contains a key called vaultSecretName which is an id that should be unique to messages that has the same auth token. The unique id will be used as a secret name in the Vault and the secret content will be the auth token passed in the authorization header. When the auth token in the authorization header changes, a new ubique value should be passed in the vaultSecretName for those messages.
@@ -184,7 +185,22 @@ Step 2. store-data inserts the JSON payload into datasync_collection. It adds 2
 
 
 
-Step 3. process-data Function which is exposed in API Gateway using the route with path /process, can be invoked sequentially to process the records. The API endpoint will be https://[host-name]/jsondb/process. The payload for this API, will look like below sample.
+Step 3. process-data Function which is exposed in API Gateway using the route with path /process, can be invoked sequentially to process the records. The API endpoint will be https://[host-name]/jsondb/process. 
+
+```
+curl --location --request POST 'https://pfk...us-ashburn-1.oci.customer-oci.com/jsondb/process' 
+
+--header 'Content-Type: application/json' 
+
+--data-raw '{
+
+"no_of_records_to_process": 2
+
+
+
+}'
+```
+
 
 The sequential invocation of the REST api should be automated. This Function reads through the DB and looks for JSON documents that are of status as not_processed, ordered by the createdDate. The number of records to process by a single call of the Function is defined in the no_of_records_to_process value in the payload.
 
@@ -206,6 +222,7 @@ The sample REST API call and payload looks like this.
 
 https://[host-name]/jsondb/process/retry
 
+```
 curl --location --request POST 'https://pfk...us-ashburn-1.oci.customer-oci.com/jsondb/process/retry' \
 
 --header 'Content-Type: application/json' 
@@ -221,6 +238,8 @@ curl --location --request POST 'https://pfk...us-ashburn-1.oci.customer-oci.com/
 "retry_limit": 3
 
 }'
+```
+
 
 
 
