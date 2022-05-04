@@ -305,9 +305,9 @@ _AJD_SCHEMA_NAME_ is the database schema/user to connect to.
 
 3.  Make the REST call to the above  endpoint.  The curl command will look this,
 
-		curl --location --request POST 'https://....us-ashburn-1.oci.customer-oci.com/jsondb/store' \
-		--header 'Authorization: Bearer YWRtaW46V2VsY29tZTEyMzQq' \
-		--header 'Content-Type: application/json' \
+		curl --location --request POST 'https://....us-ashburn-1.oci.customer-oci.com/jsondb/store' 
+		--header 'Authorization: Bearer YWRtaW46V2VsY29tZTEyMzQq' 
+		--header 'Content-Type: application/json' 
 		--data-raw '{
 			
 			"vaultSecretName":"mar1234",
@@ -334,9 +334,9 @@ The inserted JSON document in the table , will have 2 additional keys called , _
 
 4. Next,  Run the process api,https://[host-name]/jsondb/process. The curl command will look this,
 
-		curl --location --request POST 'https://pfk2ep3pw3x3tcx4iemcx4gj4q.apigateway.us-ashburn-1.oci.customer-oci.com/jsondb/process/retry' \ 
-		--header 'Authorization: Basic YWRtaW46V2VsY29tZTEyMzQq' \
-		--header 'Content-Type: application/json' \
+		curl --location --request POST 'https://pfk2ep3pw3x3tcx4iemcx4gj4q.apigateway.us-ashburn-1.oci.customer-oci.com/jsondb/process/retry' 
+		
+		--header 'Content-Type: application/json' 
 		--data-raw '{
 			
 			"no_of_records_to_process": 2
@@ -347,14 +347,13 @@ The inserted JSON document in the table , will have 2 additional keys called , _
 Check the response, to see if the _total_processed_records_ is 1 and _success_count_ is 1. If _success_count_ is 1, check the Target APplication and verify if the REST api operation is successful.
 If the _success_count_ is 0, and _failed_count_ is 1, Check the database and see the _failure_reason_ key in the JSON document.
 
-5. To validate if the retry is working, you can pass incorrect values in the _store_ api payload and then invoke, the retry api. The retry api,  will look like this
-https://[host-name]/stream/retry. 
+5. To validate if the retry is working, you can pass incorrect values in the _store_ api payload and then invoke, the retry api.
 
 The curl command will look like below.
 
-		curl --location --request POST 'https://pfk2ep3pw3x3tcx4iemcx4gj4q.apigateway.us-ashburn-1.oci.customer-oci.com/jsondb/process/retry' \
-		--header 'Authorization: Basic YWRtaW46V2VsY29tZTEyMzQq' \
-		--header 'Content-Type: application/json'\
+		curl --location --request POST 'https://pfk2ep3pw3x3tcx4iemcx4gj4q.apigateway.us-ashburn-1.oci.customer-oci.com/jsondb/process/retry' 
+		
+		--header 'Content-Type: application/json'
 		--data-raw '{
 			
 			"no_of_records_to_process": 2,
