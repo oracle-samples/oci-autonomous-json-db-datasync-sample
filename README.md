@@ -1,4 +1,4 @@
-# Data Syncing using Oracle Cloud Infrastructure(OCI) - Autonomous JSON DB(AJD) based Pattern
+# Data Synchronization using Oracle Cloud Infrastructure(OCI) Cloud Native Services and  Autonomous JSON DB Pattern
 
 ## Introduction
 
@@ -97,10 +97,6 @@ A vault called, _DataSyncVault_ is used to store the authorization header tokens
 The database schema password to connect to AJD, also is added in the same vault.
 
 
-[HashiCorp Terraform](https://www.Terraform.io/)
-
-[Oracle Terraform Provider](https://registry.Terraform.io/providers/hashicorp/oci/latest/docs)
-
 [Python](https://www.python.org/)
   - [Oracle Cloud Infrastructure SDK for Python](https://docs.oracle.com/en-us/iaas/Content/API/SDKDocs/pythonsdk.htm)
   - [SODA for Python](https://docs.oracle.com/en/database/oracle/simple-oracle-document-access/python/)
@@ -112,86 +108,129 @@ The database schema password to connect to AJD, also is added in the same vault.
 
 ## Process Flow
 
-Step 1.	Source application/s posts data to the API Gateway deployment route with path ,_/store_ . This invokes the Function _store-data_.
-
-The REST API call to API Gateway and sample json payload is given below. 
-https://[hostname]/jsondb/store
-
-```
-{
-        "vaultSecretName":"vaultsecret1",
-		"targetRestApi": "https://g.../.../latest/orders",
-		"targetRestApiOperation": "POST",
-		"targetRestApiPayload": {
-			"orderid": "20jan1",
-			"PO": "19jan"
-		},
-		"targetRestApiHeaders": {
-			 "Content-Type": "application/json"
-			}
-		
-	
-
-}
-```
+Step 1. Source application posts data to the API Gateway's /store route.  CURL command sample is given below.
 
 
-The payload  is self-contained i.e.  it contains the target application API in _targetRestApi_ node,  target application’s Rest API operation in _targetRestApiOperation_ key and a target application’s Rest API payload in _targetRestApiPayload_ node. Headers for target REST API call should be sent in _targetRestApiHeaders_ node.
 
-In most cases the target application API will need a security token. Usually this token is passed in the authorization header of the POST call to API Gateway. This token needs to be securely stored for target application API processing later by _process-data_ Function. For this purpose,  the json payload contains a  key called _vaultSecretName_ which is an id that should be unique to messages that has the same auth token.  The unique id will be used as a secret name in the Vault and the secret content will be the auth token passed in the authorization header. When the auth token in the authorization header changes, a new ubique value should be passed in the _vaultSecretName_ for those messages.
+c```
+url --location --request POST 'https://pfk2e…..apigateway.us-ashburn-1.oci.customer-oci.com/jsondb/store  --header Authorization: Bearer RsT5OjbzRn430zqMLgV3Ia' --header 'Content-Type: application/json'  --data-raw ' {
 
-Step 2.	_store-data_  inserts the JSON payload into _datasync_collection_. It adds 2 new keys to json payload. One is  called , _status_ with value as _not_processed.  The second one is _createdDate_ with value as current date& time. These keys will be used by _process-data_ Function to filter and sort the records.
-It also reads the _vaultSecretName_ and creates a secret in Vault with content as the authorization header token and secret name as the value of the key _vaultSecretName_.
+   "streamKey":"key_123",
 
-Step 3.	_process-data_  Function which is exposed in API Gateway using the route with path _/process_, can be invoked sequentially to process the records. The API endpoint will be https://[host-name]/jsondb/process. 
-The payload for this API, will look like below sample.
+   "streamMessage":{
 
-```
-{
-	
-	"no_of_records_to_process": 2
+      "vaultSecretName":"secret_1",
 
-   
-}
-```
+      "targetRestApi":"https://gthsjj.com/fscmRestApi/resources/version/salesOrders",
 
-The sequential invocation of the REST api should be automated. This Function reads through the DB and looks for JSON documents that are of _status_ as _not_processed_, ordered by the _createdDate_. The number of records to process by a single call of the Function is defined in the _no_of_records_to_process_ value in the payload.
+      "targetRestApiOperation":"PST",
 
-It then calls the target application's REST endpoint by reading the value of the key _targetRESTApi_ and  using the method in _targetRestApiOperation_. 
-If the call is successful, the JSON document in the collection is updated with  _status_ key  value as _success_ and the _status_code_ as the REST response code of the target application API.
+      "targetRestApiPayload":{
 
-If the call is failed, the JSON document in the collection is updated with  _status_ key  value as _failed_ and the _status_code_ as the REST response code of the target application API. Function also adds a _failure_reason_ key with the reason for the target application call failure.
+         "SourceTransactionNumber":"R13_HdrEff_01",
 
-The response from the Function call will look like below. It gives the count of the total processed records, failed and successful records. It has a _has_next_ key that indicates whether there are further records in the database, with _status_ as _not_processed_. This helps in determining whether further call is required to the Function.
+         "SourceTransactionSystem":"GPR",
 
-```{"total_processed_records":1,"success_count":0,"failure_count":1,"has_next:"false"}```
+         "SourceTransactionId":"R13_HdrEff_01",
 
-Step 5.	Lastly there is an option to retry the failed messages  using an API Gateway API, that exposes the _process-data_ Function, in a route _/process/retry_
+         "BusinessUnitName":"Vision Operations",
 
-The sample REST API call and  payload looks like this.
+         "BuyingPartyName":"Computer Service and Rentals",
 
-https://[host-name]/jsondb/process/retry 
+         "TransactionType":"Standard Orders",
 
-```
-{
-	
-	"no_of_records_to_process": 2,
-	"retry_codes":"503,500",
-    "retry_limit":3
-   
-}
+         "RequestedShipDate":"2022-01-19T20:49:12+00:00",
 
+         "RequestedFulfillmentOrganizationName":"Vision Operations",
+
+         "PaymentTerms":"30 Net",
+
+         "TransactionalCurrencyName":"US Dollar",
+
+         "RequestingBusinessUnitName":"Vision Operations",
+
+         "FreezePriceFlag":false
+
+      },
+
+      "targetRestApiHeaders":[
+
+         {
+
+            "key":"Content-Type",
+
+            "value":"application/json"
+
+         }
+
+
+
+]
+
+   }
+
+}'
 ```
 
 
-In the retry payload, specify the _no_of_records_to_process_, which tells the number of records to process by a single call of the Function. _retry_codes_ is where you can specify the response codes that should be retried.
-It also contains an option to set the number of times retry should happen using _retry_limit_.
 
-This Function queries the database for JSON documents with _status_ as _failed_ and with _status_code_ matching the _retry_codes_. If the processing of record has already been tried to a number equal to _retry_limit_, then those records are skkiped. This api call, sends a response as below
+The payload is self-contained i.e. it contains the target application API in targetRestApi node, target application’s Rest API operation in targetRestApiOperation key and a target application’s Rest API payload in targetRestApiPayload node. Headers for target REST API call should be sent in targetRestApiHeaders node.
 
-`{"total_processed_records":1,"success_count":0,"failure_count":1,"skipped_count":0,"has_next:"false"}`
+In most cases the target application API will need a security token. Usually this token is passed in the authorization header of the POST call to API Gateway. This token needs to be securely stored for target application API processing later by process-data Function. For this purpose, the json payload contains a key called vaultSecretName which is an id that should be unique to messages that has the same auth token. The unique id will be used as a secret name in the Vault and the secret content will be the auth token passed in the authorization header. When the auth token in the authorization header changes, a new ubique value should be passed in the vaultSecretName for those messages.
 
-In case of retry, the response informs, the number of JSON documents skipped from processing since retrial count has reached the limit for those documents. This is indicated by the value in _skipped_count_ .
+
+
+Step 2. store-data inserts the JSON payload into datasync_collection. It adds 2 new keys to json payload. One is called , status with value as _not_processed. The second one is createdDate with value as current date& time. These keys will be used by process-data Function to filter and sort the records. It also reads the vaultSecretName and creates a secret in Vault with content as the authorization header token and secret name as the value of the key vaultSecretName.
+
+
+
+Step 3. process-data Function which is exposed in API Gateway using the route with path /process, can be invoked sequentially to process the records. The API endpoint will be https://[host-name]/jsondb/process. The payload for this API, will look like below sample.
+
+The sequential invocation of the REST api should be automated. This Function reads through the DB and looks for JSON documents that are of status as not_processed, ordered by the createdDate. The number of records to process by a single call of the Function is defined in the no_of_records_to_process value in the payload.
+
+It then calls the target application's REST endpoint by reading the value of the key targetRESTApi and using the method in targetRestApiOperation. If the call is successful, the JSON document in the collection is updated with status key value as success and the status_code as the REST response code of the target application API.
+
+If the call is failed, the JSON document in the collection is updated with status key value as failed and the status_code as the REST response code of the target application API. Function also adds a failure_reason key with the reason for the target application call failure.
+
+The response from the Function call will look like below. It gives the count of the total processed records, failed and successful records. It has a has_next key that indicates whether there are further records in the database, with status as not_processed. This helps in determining whether further call is required to the Function.
+
+{"total_processed_records":1,"success_count":0,"failure_count":1,"has_next:"false"}
+
+
+
+Step 4.  
+
+Lastly there is an option to retry the failed messages using an API Gateway API, that exposes the process-data Function, in the route /process/retry
+
+The sample REST API call and payload looks like this.
+
+https://[host-name]/jsondb/process/retry
+
+curl --location --request POST 'https://pfk...us-ashburn-1.oci.customer-oci.com/jsondb/process/retry' \
+
+--header 'Content-Type: application/json' 
+
+--header 'Authorization: Basic YWRtaW46V2VsY29tZTEyMzQq' 
+
+--data-raw '{
+
+"no_of_records_to_process": 2,
+
+"retry_codes": "501",
+
+"retry_limit": 3
+
+}'
+
+
+
+In the retry payload, specify the no_of_records_to_process, which tells the number of records to process by a single call of the Function. retry_codes is where you can specify the error response codes that should be retried. It also contains an option to set the number of times retry should happen using retry_limit.
+
+This Function queries the database for JSON documents with status as failed and with status_code matching the retry_codes. If the processing of record has already been tried to a number equal to retry_limit, then those records are skkiped. This api call, sends a response as below
+
+{"total_processed_records":1,"success_count":0,"failure_count":1,"skipped_count":0,"has_next:"false"}
+
+In case of retry, the response informs, the number of JSON documents skipped from processing since retrial count has reached the limit for those documents. This is indicated by the value in skipped_count .
 
 
 ## Installation
