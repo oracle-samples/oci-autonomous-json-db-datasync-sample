@@ -202,15 +202,26 @@ In case of retry, the response informs, the number of JSON documents skipped fro
 
 1. Make sure you've setup your [API signing key](https://docs.cloud.oracle.com/iaas/Content/API/Concepts/apisigningkey.htm), installed the [Fn CLI](https://github.com/fnproject/cli), completed the [CLI configuration](https://docs.cloud.oracle.com/iaas/Content/API/Concepts/sdkconfig.htm#CLIConfiguration) steps and have setup the [OCI Registry](https://docs.cloud.oracle.com/iaas/Content/Registry/Concepts/registryoverview.htm) you want to use.
 
-2. Ensure Terraform is installed.
-
-3. You have the Target application's REST API, Auth token and Json Payload for loading data to it.
+2. You have the Target application's REST API, Auth token and Json Payload for loading data to it.
 
 ### Creating the cloud artefacts in OCI
 
-1. Download the files from the respository and navigate to location where you downloaded the files. Navigate to _code_ folder.
+1. Provision an autonomous JSON database and create a user in DB. Assign right privileges to the user and check if you are able to connect to the user.
 
-2. Modify _provider.tf_ , with values spefic to your OCI environment.
+2. Deploy Functions store-data and process-data.
+
+3. Add the following configuration variables in the Function Application.
+
+
+_AJD_SERVICE_NAME_ is the database service name.
+_AJD_SCHEMA_NAME_ is the database schema/user to connect to.
+
+![Application configuration variables]( /image/ApplicationConfiguration.png "Application configuration variables")
+
+4. Create an API Gateway deployment with PATH PREFIX as _jsondb_. Create 3 routes in this deployment
+![Route1]( /image/Route1_RMblog1.png "Route1")
+![Route2]( /image/Route1_RMblog1.png "Route2")
+![Route3]( /image/Route1_RMblog1.png "Route3")
 
 3. Run following Terraform  commands to create all your resources in OCI. You will be asked the provide variable values. 
 
