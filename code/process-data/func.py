@@ -111,8 +111,8 @@ try:
 
 	dbpool = cx_Oracle.SessionPool(dbuser, dbpwd, dbsvc, min=1, max=1, encoding="UTF-8", nencoding="UTF-8")
 
-except Exception as e:
-	logging.getLogger().error(e)
+except Exception as instantiation_error:
+	logging.getLogger().error(instantiation_error)
 	raise
 
 
@@ -131,115 +131,126 @@ def handler(ctx, data: io.BytesIO = None):
 		payload = json.loads(payload_bytes)
 
 		if payload_bytes == b'':
-			raise KeyError('No keys in payload')
+			raise ValueError('No keys in payload')
 		# Check if no_of_records_to_process is >0
+		if "no_of_records_to_process" not in payload:
+			raise ValueError('Check if no_of_records_to_process is set correctly in payload')
 		no_of_records_to_process = int(payload["no_of_records_to_process"])
 		if no_of_records_to_process <= 0:
 			raise ValueError('no_of_records_to_process must be greater than 0')
+
 		# If the Function call is for retry, get additional keys from payload
 		if path_param == RETRY_PATH:
-			retry_limit = int(payload["retry_limit"])
-			retry_codes = payload["retry_codes"]
+			if "retry_limit" in payload:
+				retry_limit = int(payload["retry_limit"])
+			else:
+				raise ValueError('Check if retry_limit is set correctly in payload')
 
-	except Exception as ex1:
-		logging.getLogger().error(ex1)
-
-		if path_param == RETRY_PATH:
-			message = "Missing keys- Check if no_of_records_to_process, retry_codes,retry_limit are set correctly"
+			if "retry_codes" in payload:
+				retry_codes = payload["retry_codes"]
+			else:
+				raise ValueError('Check if retry_codes is set correctly in payload')
+			response_data = prepare_and_process_data(path_param, no_of_records_to_process, retry_limit, retry_codes)
 		else:
-			message = "Missing keys- Check if no_of_records_to_process is set correctly"
+			response_data = prepare_and_process_data(path_param, no_of_records_to_process)
+
+	except ValueError as valueError:
+
 		return response.Response(
 			ctx,
-			response_data=message,
+			response_data=str(valueError),
 			status_code=500
 		)
-
-	try:
-		with dbpool.acquire() as dbconnection:
-			dbconnection.autocommit = True
-
-			soda = dbconnection.getSodaDatabase()
-			collection = soda.openCollection("datasync_collection")
-			# Check if it is a retry call
-			if path_param == RETRY_PATH:
-				# Filter the records with status as failed and with status_code matching the retry codes specified in payload
-				qbe = {'$query': {'status': {'$eq': 'failed'}, 'status_code': {'$in': retry_codes.split(',')}},
-					   '$orderby': [
-						   {'path': 'createdDate', 'datatype': 'timestamp'}]}
-			else:
-				# Filter the records with status as not_processed
-				qbe = {'$query': {'status': {'$eq': 'not_processed'}},
-					   '$orderby': [
-						   {'path': 'createdDate', 'datatype': 'timestamp'}]}
-
-			total_count = 0
-			sucess_count = 0
-			failed_count = 0
-			skipped_count = 0
-			# Total number of records returned by filter
-			num_docs = collection.find().filter(qbe).count()
-			# Loop through the filtered records
-			for doc in collection.find().filter(qbe).limit(no_of_records_to_process).getDocuments():
-				try:
-					content = doc.getContent()
-					is_processed = True
-
-					if path_param == RETRY_PATH:
-						# Check how many times retrial has happened for the selected record
-						if "retry_attempts" in content:
-							# If the retrial count of the record is less than specified limit, continue processing
-							if int(content["retry_attempts"]) < retry_limit:
-								content["retry_attempts"] = int(content["retry_attempts"]) + 1
-								process(content)
-							else:
-								logging.getLogger().info('no of trials exceeded')
-								is_processed = False
-								# Count the no of records of skipped for processing  since record has reached the retry limit.
-								skipped_count = skipped_count + 1
-						# set the key retry_attempts in JSON to 1, if this is first retry attempt
-						else:
-							content["retry_attempts"] = 1
-							process(content)
-					else:
-						process(content)
-
-					# Replace the content with new content which has status_code and status
-					if is_processed:
-						collection.find().key(doc.key).replaceOne(content)
-						if content['status'] == "success":
-							sucess_count = sucess_count + 1
-						elif content['status'] == "failed":
-							failed_count = failed_count + 1
-					total_count = total_count + 1
-				except Exception as ex3:
-					logging.getLogger().error(
-						"Exception occured during the processing of " + str(doc.key) + "due to " + str(ex3))
-
-			# Check if there are more records to process
-			if num_docs <= no_of_records_to_process:
-				has_next = "false"
-			else:
-				has_next = "true"
-
-	except Exception as ex2:
-		logging.getLogger().error(ex2)
+	except Exception as unexpected_error:
+		logging.getLogger().error(unexpected_error)
 
 		return response.Response(
 			ctx,
-			response_data="Failed in completing the request due to " + str(ex2),
+			response_data="Failed in completing the request due to " + str(unexpected_error),
 			status_code=500
 		)
 	# Return the result of processing
 	return response.Response(
 		ctx,
-		response_data='{"total_processed_records":' + str(total_count) + ',"success_count":' + str(
-			sucess_count) + ',"failure_count":' + str(failed_count) + ',"skipped_count":' + str(
-			skipped_count) + ',"has_next:"' + has_next + '"}'
+		response_data
 	)
 
 
+# This method is used to filter the records in JSON DB for processing , execute the target API and set the API
+# response code in the payload
+def prepare_and_process_data(path_param, no_of_records_to_process, retry_limit=0, retry_codes=0):
+	with dbpool.acquire() as dbconnection:
+		dbconnection.autocommit = True
+
+		soda = dbconnection.getSodaDatabase()
+		collection = soda.openCollection("datasync_collection")
+		# Check if it is a retry call
+		if path_param == RETRY_PATH:
+			# Filter the records with status as failed and with status_code matching the retry codes specified in payload
+			qbe = {'$query': {'status': {'$eq': 'failed'}, 'status_code': {'$in': retry_codes.split(',')}},
+				   '$orderby': [
+					   {'path': 'createdDate', 'datatype': 'timestamp'}]}
+		else:
+			# Filter the records with status as not_processed
+			qbe = {'$query': {'status': {'$eq': 'not_processed'}},
+				   '$orderby': [
+					   {'path': 'createdDate', 'datatype': 'timestamp'}]}
+
+		total_count = 0
+		sucess_count = 0
+		failed_count = 0
+		skipped_count = 0
+		# Total number of records returned by filter
+		num_docs = collection.find().filter(qbe).count()
+		# Loop through the filtered records
+		for doc in collection.find().filter(qbe).limit(no_of_records_to_process).getDocuments():
+			try:
+				content = doc.getContent()
+				is_processed = True
+
+				if path_param == RETRY_PATH:
+					# Check how many times retrial has happened for the selected record
+					if "retry_attempts" in content:
+						# If the retrial count of the record is less than specified limit, continue processing
+						if int(content["retry_attempts"]) < retry_limit:
+							content["retry_attempts"] = int(content["retry_attempts"]) + 1
+							execute_target_api(content)
+						else:
+							logging.getLogger().info('no of trials exceeded')
+							is_processed = False
+							# Count the no of records of skipped for processing  since record has reached the retry limit.
+							skipped_count = skipped_count + 1
+					# set the key retry_attempts in JSON to 1, if this is first retry attempt
+					else:
+						content["retry_attempts"] = 1
+						execute_target_api(content)
+				else:
+					execute_target_api(content)
+
+				# Replace the content with new content which has status_code and status
+				if is_processed:
+					collection.find().key(doc.key).replaceOne(content)
+					if content['status'] == "success":
+						sucess_count = sucess_count + 1
+					elif content['status'] == "failed":
+						failed_count = failed_count + 1
+				total_count = total_count + 1
+			except Exception as unexpected_error:
+				logging.getLogger().error(
+					"Exception occured during the processing of " + str(doc.key) + "due to " + str(unexpected_error))
+
+		# Check if there are more records to process
+		if num_docs <= no_of_records_to_process:
+			has_next = "false"
+		else:
+			has_next = "true"
+		return '{"total_processed_records":' + str(total_count) + ',"success_count":' + str(
+			sucess_count) + ',"failure_count":' + str(failed_count) + ',"skipped_count":' + str(
+			skipped_count) + ',"has_next:"' + has_next + '"}'
+
+
 # This method is used to process the document in the collection
-def process(content):
+def execute_target_api(content):
 	# extract the json payload key values
 	try:
 		vault_secret_name = content["vaultSecretName"]
@@ -247,8 +258,8 @@ def process(content):
 		target_rest_api_operation = content["targetRestApiOperation"]
 		target_rest_api_payload = content["targetRestApiPayload"]
 
-	except Exception as ex3:
-		logging.getLogger().error(ex3)
+	except Exception as payload_error:
+		logging.getLogger().error(payload_error)
 		content['status'] = 'failed'
 		content['status_code'] = 500
 		content[
@@ -258,11 +269,10 @@ def process(content):
 	try:
 		# Get the security token for API call rom vault
 		auth_token = get_secret_from_vault(vault_secret_name)
+		target_rest_api_headers = ({'Authorization': auth_token})
 		if "targetRestApiHeaders" in content:
-			target_rest_api_headers = content["targetRestApiHeaders"]
-		# Merge the authorization header with any other headers already present
-
-		target_rest_api_headers.update({'Authorization': auth_token})
+			# Merge the authorization header with any other headers already present
+			target_rest_api_headers.update(content["targetRestApiHeaders"])
 
 		if target_rest_api_operation == 'POST':
 
@@ -292,8 +302,8 @@ def process(content):
 
 		content['status_code'] = api_call_response.status_code
 
-	except Exception as ex4:
-		logging.getLogger().error(ex4)
+	except Exception as api_call_error:
+		logging.getLogger().error(api_call_error)
 		content['status'] = 'failed'
 		content['status_code'] = 500
-		content['failure_reason'] = 'unexpected error. ' + str(ex4)
+		content['failure_reason'] = 'unexpected error. ' + str(api_call_error)
