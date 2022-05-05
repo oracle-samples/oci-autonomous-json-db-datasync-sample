@@ -184,22 +184,12 @@ def prepare_and_process_data(path_param, no_of_records_to_process, retry_limit=0
 
 		soda = dbconnection.getSodaDatabase()
 		collection = soda.openCollection("datasync_collection")
-		# Check if it is a retry call
-		if path_param == RETRY_PATH:
-			# Filter the records with status as failed and with status_code matching the retry codes specified in payload
-			qbe = {'$query': {'status': {'$eq': 'failed'}, 'status_code': {'$in': retry_codes.split(',')}},
-				   '$orderby': [
-					   {'path': 'createdDate', 'datatype': 'timestamp'}]}
-		else:
-			# Filter the records with status as not_processed
-			qbe = {'$query': {'status': {'$eq': 'not_processed'}},
-				   '$orderby': [
-					   {'path': 'createdDate', 'datatype': 'timestamp'}]}
 
 		total_count = 0
 		sucess_count = 0
 		failed_count = 0
 		skipped_count = 0
+		qbe = construct_qbe(path_param, retry_codes)
 		# Total number of records returned by filter
 		num_docs = collection.find().filter(qbe).count()
 		# Loop through the filtered records
@@ -247,6 +237,21 @@ def prepare_and_process_data(path_param, no_of_records_to_process, retry_limit=0
 		return '{"total_processed_records":' + str(total_count) + ',"success_count":' + str(
 			sucess_count) + ',"failure_count":' + str(failed_count) + ',"skipped_count":' + str(
 			skipped_count) + ',"has_next:"' + has_next + '"}'
+
+
+def construct_qbe(path_param, retry_codes):
+	# Check if it is a retry call
+	if path_param == RETRY_PATH:
+		# Filter the records with status as failed and with status_code matching the retry codes specified in payload
+		qbe = {'$query': {'status': {'$eq': 'failed'}, 'status_code': {'$in': retry_codes.split(',')}},
+			   '$orderby': [
+				   {'path': 'createdDate', 'datatype': 'timestamp'}]}
+	else:
+		# Filter the records with status as not_processed
+		qbe = {'$query': {'status': {'$eq': 'not_processed'}},
+			   '$orderby': [
+				   {'path': 'createdDate', 'datatype': 'timestamp'}]}
+	return qbe
 
 
 # This method is used to process the document in the collection
