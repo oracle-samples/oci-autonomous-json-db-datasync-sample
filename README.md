@@ -113,7 +113,7 @@ Step 1. Source application posts data to the API Gateway's /store route.  CURL
 
 
 ```
-curl --location --request POST 'https://pfk2e…..apigateway.us-ashburn-1.oci.customer-oci.com/jsondb/store  --header Authorization: Bearer RsT5OjbzRn430zqMLgV3Ia' --header 'Content-Type: application/json'  --data-raw ' {
+curl --location --request POST 'https://pfk2e…..apigateway.us-ashburn-1.oci.customer-oci.com/jsondb/store  -H @header_file  --data-raw ' {
 
    "streamKey":"key_123",
 
@@ -190,7 +190,7 @@ Step 3. process-data Function which is exposed in API Gateway using the route wi
 ```
 curl --location --request POST 'https://pfk...us-ashburn-1.oci.customer-oci.com/jsondb/process' 
 
---header 'Content-Type: application/json' 
+-H @header_file
 
 --data-raw '{
 
@@ -223,8 +223,8 @@ The sample REST API call and payload looks like this.
 https://[host-name]/jsondb/process/retry
 
 ```
-curl -H @header_file --location --request POST 'https://pfk...us-ashburn-1.oci.customer-oci.com/jsondb/process/retry' \
-
+curl  --location --request POST 'https://pfk...us-ashburn-1.oci.customer-oci.com/jsondb/process/retry' \
+-H @header_file
 --data-raw '{
 
 "no_of_records_to_process": 2,
@@ -238,8 +238,7 @@ curl -H @header_file --location --request POST 'https://pfk...us-ashburn-1.oci.c
 
 ```
 header_file, conatins the http headers
-'Content-Type: application/json' 
-'Authorization: ......' 
+
 
 
 
@@ -309,8 +308,8 @@ _AJD_SCHEMA_NAME_ is the database schema/user to connect to.
 
 3.  Make the REST call to the above  endpoint.  The curl command will look this,
 
-		curl -H @header_file --location --request POST 'https://....us-ashburn-1.oci.customer-oci.com/jsondb/store' 
-		
+		curl  --location --request POST 'https://....us-ashburn-1.oci.customer-oci.com/jsondb/store' 
+		-H @header_file
 		--data-raw '{
 			
 			"vaultSecretName":"mar1234",
@@ -341,7 +340,7 @@ The inserted JSON document in the table , will have 2 additional keys called , _
 
 		curl --location --request POST 'https://pfk2ep3pw3x3tcx4iemcx4gj4q.apigateway.us-ashburn-1.oci.customer-oci.com/jsondb/process/retry' 
 		
-		--header 'Content-Type: application/json' 
+		-H @header_file
 		--data-raw '{
 			
 			"no_of_records_to_process": 2
@@ -358,7 +357,7 @@ The curl command will look like below.
 
 		curl --location --request POST 'https://pfk2ep3pw3x3tcx4iemcx4gj4q.apigateway.us-ashburn-1.oci.customer-oci.com/jsondb/process/retry' 
 		
-		--header 'Content-Type: application/json'
+		-H @header_file
 		--data-raw '{
 			
 			"no_of_records_to_process": 2,
