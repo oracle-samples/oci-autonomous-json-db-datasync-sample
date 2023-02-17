@@ -223,11 +223,7 @@ The sample REST API call and payload looks like this.
 https://[host-name]/jsondb/process/retry
 
 ```
-curl --location --request POST 'https://pfk...us-ashburn-1.oci.customer-oci.com/jsondb/process/retry' \
-
---header 'Content-Type: application/json' 
-
---header 'Authorization: Basic YWRtaW46V2VsY29tZTEyMzQq' 
+curl -H @header_file --location --request POST 'https://pfk...us-ashburn-1.oci.customer-oci.com/jsondb/process/retry' \
 
 --data-raw '{
 
@@ -238,8 +234,12 @@ curl --location --request POST 'https://pfk...us-ashburn-1.oci.customer-oci.com/
 "retry_limit": 3
 
 }'
-```
 
+
+```
+header_file, conatins the http headers
+'Content-Type: application/json' 
+'Authorization: ......' 
 
 
 
@@ -309,9 +309,8 @@ _AJD_SCHEMA_NAME_ is the database schema/user to connect to.
 
 3.  Make the REST call to the above  endpoint.  The curl command will look this,
 
-		curl --location --request POST 'https://....us-ashburn-1.oci.customer-oci.com/jsondb/store' 
-		--header 'Authorization: Bearer YWRtaW46V2VsY29tZTEyMzQq' 
-		--header 'Content-Type: application/json' 
+		curl -H @header_file --location --request POST 'https://....us-ashburn-1.oci.customer-oci.com/jsondb/store' 
+		
 		--data-raw '{
 			
 			"vaultSecretName":"mar1234",
@@ -328,6 +327,8 @@ _AJD_SCHEMA_NAME_ is the database schema/user to connect to.
 			
 
 		}
+
+
 
 Change the values based on your Target application's REST api. Pass the authorization header to connect to target application's REST end point.
 
