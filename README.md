@@ -420,4 +420,9 @@ Developers choosing to distribute a binary implementation of this project are re
 
 If you need help with this sample, please log an issue within this repository and the code owners will help out where we can.
 
-Copyright (c) 2022, Oracle and/or its affiliates. Licensed under the Universal Permissive License v 1.0 as shown at https://oss.oracle.com/licenses/upl.
+## License
+
+Copyright (c) 2022 Oracle and/or its affiliates. 
+
+Licensed under the Universal Permissive License v 1.0 as shown at 
+https://oss.oracle.com/licenses/upl.
